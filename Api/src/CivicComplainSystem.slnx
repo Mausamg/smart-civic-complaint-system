@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="CivicComplaintSystem.Api/CivicComplaintSystem.Api.csproj" />
+  </Folder>
+</Solution>
