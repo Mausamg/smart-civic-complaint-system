@@ -34,6 +34,12 @@ builder.Services
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    await IdentitySeeder.SeedIdentity(
+        scope.ServiceProvider);
+}
+
 app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
