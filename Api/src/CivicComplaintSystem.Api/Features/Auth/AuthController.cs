@@ -11,11 +11,16 @@ public sealed class AuthController(
     : ControllerBase
 {
     [HttpPost("register")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register(
         RegisterRequest request)
     {
+        var email = request.Email.Trim();
+
         var existingUser =
-            await userManager.FindByEmailAsync(request.Email);
+            await userManager.FindByEmailAsync(email);
 
         if (existingUser is not null)
         {
@@ -29,17 +34,17 @@ public sealed class AuthController(
         {
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
-            Email = request.Email.Trim(),
-            UserName = request.Email.Trim()
+            Email = email,
+            UserName = email
         };
 
-        var result = await userManager.CreateAsync(
+        var createResult = await userManager.CreateAsync(
             user,
             request.Password);
 
-        if (!result.Succeeded)
+        if (!createResult.Succeeded)
         {
-            foreach (var error in result.Errors)
+            foreach (var error in createResult.Errors)
             {
                 ModelState.AddModelError(
                     error.Code,
@@ -49,9 +54,23 @@ public sealed class AuthController(
             return ValidationProblem(ModelState);
         }
 
-        await userManager.AddToRoleAsync(
+        var roleResult = await userManager.AddToRoleAsync(
             user,
             AppRoles.Citizen);
+
+        if (!roleResult.Succeeded)
+        {
+            await userManager.DeleteAsync(user);
+
+            foreach (var error in roleResult.Errors)
+            {
+                ModelState.AddModelError(
+                    error.Code,
+                    error.Description);
+            }
+
+            return ValidationProblem(ModelState);
+        }
 
         return StatusCode(
             StatusCodes.Status201Created,
