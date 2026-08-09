@@ -1,10 +1,11 @@
+using System.Linq.Expressions;
 using System.Security.Claims;
 using CivicComplaintSystem.Api.Data;
+using CivicComplaintSystem.Api.Features.Users;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using CivicComplaintSystem.Api.Features.Users;
-using Microsoft.AspNetCore.Identity;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
 
@@ -58,12 +59,12 @@ public sealed class ComplaintsController(
                 complaint.Description,
                 complaint.Category,
                 complaint.Location,
-                complaint.Status,
+                Status = complaint.Status.ToString(),
                 complaint.CreatedAt
             });
     }
-    
-    
+
+
     [HttpGet("my")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -82,24 +83,48 @@ public sealed class ComplaintsController(
 
         var complaints = await context.Complaints
             .AsNoTracking()
-            .Where(c => c.SubmittedByUserId == userId)
-            .OrderByDescending(c => c.CreatedAt)
-            .Select(c => new
-            {
-                c.Id,
-                c.Title,
-                c.Description,
-                c.Category,
-                c.Location,
-                Status = c.Status.ToString(),
-                c.CreatedAt,
-                c.UpdatedAt
-            })
+            .Where(c =>
+                c.SubmittedByUserId == userId)
+            .OrderByDescending(c =>
+                c.CreatedAt)
+            .Select(ComplaintResponseProjection)
             .ToListAsync();
 
         return Ok(complaints);
     }
-    
+
+
+    [HttpGet("assigned-to-me")]
+    [Authorize(Roles = AppRoles.Staff)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAssignedToMe()
+    {
+        var userIdValue =
+            User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+        }
+
+        var complaints = await context.Complaints
+            .AsNoTracking()
+            .Where(c =>
+                c.AssignedToUserId == userId)
+            .OrderByDescending(c =>
+                c.UpdatedAt ?? c.CreatedAt)
+            .Select(ComplaintResponseProjection)
+            .ToListAsync();
+
+        return Ok(complaints);
+    }
+
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -122,17 +147,7 @@ public sealed class ComplaintsController(
             .Where(c =>
                 c.Id == id &&
                 c.SubmittedByUserId == userId)
-            .Select(c => new
-            {
-                c.Id,
-                c.Title,
-                c.Description,
-                c.Category,
-                c.Location,
-                Status = c.Status.ToString(),
-                c.CreatedAt,
-                c.UpdatedAt
-            })
+            .Select(ComplaintResponseProjection)
             .FirstOrDefaultAsync();
 
         if (complaint is null)
@@ -145,133 +160,100 @@ public sealed class ComplaintsController(
 
         return Ok(complaint);
     }
-    
-    
+
+
     [HttpGet]
     [Authorize(Roles = AppRoles.Admin)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAll()
-    {
-        var complaints = await context.Complaints
-            .AsNoTracking()
-            .OrderByDescending(c => c.CreatedAt)
-            .Select(c => new
-            {
-                c.Id,
-                c.Title,
-                c.Description,
-                c.Category,
-                c.Location,
-                Status = c.Status.ToString(),
-                c.CreatedAt,
-                c.UpdatedAt,
-                c.SubmittedByUserId,
-                SubmittedBy = new
-                {
-                    c.SubmittedByUser.FirstName,
-                    c.SubmittedByUser.LastName,
-                    c.SubmittedByUser.Email
-                }
-            })
-            .ToListAsync();
-
-        return Ok(complaints);
-    }
-    
-   
-    [HttpPatch("{id:guid}/status")]
-    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateStatus(
-        Guid id,
-        UpdateComplaintStatusRequest request)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] GetComplaintsRequest request)
     {
-        var complaint = await context.Complaints
-            .FirstOrDefaultAsync(c => c.Id == id);
-
-        if (complaint is null)
-        {
-            return NotFound(new
-            {
-                message = "Complaint not found."
-            });
-        }
-
-        var currentUserIdValue =
-            User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(currentUserIdValue, out var currentUserId))
-        {
-            return Unauthorized(new
-            {
-                message = "Invalid user identity."
-            });
-        }
-
-        var isAdmin = User.IsInRole(AppRoles.Admin);
-
-        if (!isAdmin &&
-            complaint.AssignedToUserId != currentUserId)
-        {
-            return Forbid();
-        }
-
-        if (!IsValidStatusTransition(
-                complaint.Status,
-                request.Status))
+        if (request.Page < 1)
         {
             return BadRequest(new
             {
                 message =
-                    $"Cannot change complaint status from " +
-                    $"{complaint.Status} to {request.Status}."
+                    "Page must be greater than or equal to 1."
             });
         }
 
-        complaint.Status = request.Status;
-        complaint.UpdatedAt = DateTime.UtcNow;
-
-        await context.SaveChangesAsync();
-
-        return Ok(new
+        if (request.PageSize < 1 ||
+            request.PageSize > 100)
         {
-            complaint.Id,
-            Status = complaint.Status.ToString(),
-            complaint.UpdatedAt
-        });
-    }
-    
-    
+            return BadRequest(new
+            {
+                message =
+                    "PageSize must be between 1 and 100."
+            });
+        }
 
-    private static bool IsValidStatusTransition(
-        ComplaintStatus currentStatus,
-        ComplaintStatus newStatus)
-    {
-        return currentStatus switch
+        var query = context.Complaints
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (request.Status.HasValue)
         {
-            ComplaintStatus.Submitted =>
-                newStatus is ComplaintStatus.UnderReview
-                    or ComplaintStatus.Rejected,
+            query = query.Where(c =>
+                c.Status == request.Status.Value);
+        }
 
-            ComplaintStatus.UnderReview =>
-                newStatus is ComplaintStatus.Rejected,
+        if (!string.IsNullOrWhiteSpace(
+                request.Category))
+        {
+            var category =
+                request.Category.Trim();
 
-            ComplaintStatus.Assigned =>
-                newStatus is ComplaintStatus.InProgress,
+            query = query.Where(c =>
+                EF.Functions.ILike(
+                    c.Category,
+                    category));
+        }
 
-            ComplaintStatus.InProgress =>
-                newStatus is ComplaintStatus.Resolved,
+        if (!string.IsNullOrWhiteSpace(
+                request.Location))
+        {
+            var location =
+                request.Location.Trim();
 
-            _ => false
-        };
+            query = query.Where(c =>
+                EF.Functions.ILike(
+                    c.Location,
+                    $"%{location}%"));
+        }
+
+        var totalCount =
+            await query.CountAsync();
+
+        var complaints = await query
+            .OrderByDescending(c =>
+                c.CreatedAt)
+            .Skip(
+                (request.Page - 1) *
+                request.PageSize)
+            .Take(request.PageSize)
+            .Select(ComplaintResponseProjection)
+            .ToListAsync();
+
+        return Ok(
+            new PaginatedResponse<ComplaintResponse>
+            {
+                Page = request.Page,
+                PageSize = request.PageSize,
+                TotalCount = totalCount,
+
+                TotalPages =
+                    (int)Math.Ceiling(
+                        totalCount /
+                        (double)request.PageSize),
+
+                Items = complaints
+            });
     }
-    
+
+
     [HttpPatch("{id:guid}/assign")]
     [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -284,7 +266,8 @@ public sealed class ComplaintsController(
         AssignComplaintRequest request)
     {
         var complaint = await context.Complaints
-            .FirstOrDefaultAsync(c => c.Id == id);
+            .FirstOrDefaultAsync(c =>
+                c.Id == id);
 
         if (complaint is null)
         {
@@ -294,7 +277,8 @@ public sealed class ComplaintsController(
             });
         }
 
-        if (complaint.Status != ComplaintStatus.UnderReview)
+        if (complaint.Status !=
+            ComplaintStatus.UnderReview)
         {
             return BadRequest(new
             {
@@ -314,9 +298,10 @@ public sealed class ComplaintsController(
             });
         }
 
-        var isStaff = await userManager.IsInRoleAsync(
-            staff,
-            AppRoles.Staff);
+        var isStaff =
+            await userManager.IsInRoleAsync(
+                staff,
+                AppRoles.Staff);
 
         if (!isStaff)
         {
@@ -327,63 +312,203 @@ public sealed class ComplaintsController(
             });
         }
 
-        complaint.AssignedToUserId = staff.Id;
-        complaint.Status = ComplaintStatus.Assigned;
-        complaint.UpdatedAt = DateTime.UtcNow;
+        complaint.AssignedToUserId =
+            staff.Id;
+
+        complaint.Status =
+            ComplaintStatus.Assigned;
+
+        complaint.UpdatedAt =
+            DateTime.UtcNow;
 
         await context.SaveChangesAsync();
 
         return Ok(new
         {
             complaint.Id,
-            Status = complaint.Status.ToString(),
-            AssignedTo = new
-            {
-                staff.Id,
-                staff.FirstName,
-                staff.LastName,
-                staff.Email
-            },
+
+            Status =
+                complaint.Status.ToString(),
+
+            AssignedTo =
+                new UserSummaryResponse
+                {
+                    Id = staff.Id,
+                    FirstName = staff.FirstName,
+                    LastName = staff.LastName,
+                    Email = staff.Email
+                },
+
             complaint.UpdatedAt
         });
     }
-    
-    
-    [HttpGet("assigned-to-me")]
-    [Authorize(Roles = AppRoles.Staff)]
+
+
+    [HttpPatch("{id:guid}/status")]
+    [Authorize(
+        Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAssignedToMe()
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateStatus(
+        Guid id,
+        UpdateComplaintStatusRequest request)
     {
-        var userIdValue =
-            User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var complaint = await context.Complaints
+            .FirstOrDefaultAsync(c =>
+                c.Id == id);
 
-        if (!Guid.TryParse(userIdValue, out var userId))
+        if (complaint is null)
         {
-            return Unauthorized(new
+            return NotFound(new
             {
-                message = "Invalid user identity."
+                message = "Complaint not found."
             });
         }
 
-        var complaints = await context.Complaints
-            .AsNoTracking()
-            .Where(c => c.AssignedToUserId == userId)
-            .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
-            .Select(c => new
-            {
-                c.Id,
-                c.Title,
-                c.Description,
-                c.Category,
-                c.Location,
-                Status = c.Status.ToString(),
-                c.CreatedAt,
-                c.UpdatedAt
-            })
-            .ToListAsync();
+        var currentUserIdValue =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
 
-        return Ok(complaints);
+        if (!Guid.TryParse(
+                currentUserIdValue,
+                out var currentUserId))
+        {
+            return Unauthorized(new
+            {
+                message =
+                    "Invalid user identity."
+            });
+        }
+
+        var isAdmin =
+            User.IsInRole(AppRoles.Admin);
+
+        if (!isAdmin &&
+            complaint.AssignedToUserId !=
+            currentUserId)
+        {
+            return Forbid();
+        }
+
+        if (!IsValidStatusTransition(
+                complaint.Status,
+                request.Status))
+        {
+            return BadRequest(new
+            {
+                message =
+                    $"Cannot change complaint status from " +
+                    $"{complaint.Status} to " +
+                    $"{request.Status}."
+            });
+        }
+
+        complaint.Status =
+            request.Status;
+
+        complaint.UpdatedAt =
+            DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            complaint.Id,
+
+            Status =
+                complaint.Status.ToString(),
+
+            complaint.UpdatedAt
+        });
     }
+
+
+    private static bool IsValidStatusTransition(
+        ComplaintStatus currentStatus,
+        ComplaintStatus newStatus)
+    {
+        return currentStatus switch
+        {
+            ComplaintStatus.Submitted =>
+                newStatus is
+                    ComplaintStatus.UnderReview
+                    or ComplaintStatus.Rejected,
+
+            ComplaintStatus.UnderReview =>
+                newStatus is
+                    ComplaintStatus.Rejected,
+
+            ComplaintStatus.Assigned =>
+                newStatus is
+                    ComplaintStatus.InProgress,
+
+            ComplaintStatus.InProgress =>
+                newStatus is
+                    ComplaintStatus.Resolved,
+
+            _ => false
+        };
+    }
+
+
+    private static readonly
+        Expression<Func<Complaint, ComplaintResponse>>
+        ComplaintResponseProjection =
+            c => new ComplaintResponse
+            {
+                Id = c.Id,
+                Title = c.Title,
+                Description = c.Description,
+                Category = c.Category,
+                Location = c.Location,
+
+                Status =
+                    c.Status.ToString(),
+
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt,
+
+                SubmittedByUserId =
+                    c.SubmittedByUserId,
+
+                AssignedToUserId =
+                    c.AssignedToUserId,
+
+                SubmittedBy =
+                    new UserSummaryResponse
+                    {
+                        Id =
+                            c.SubmittedByUser.Id,
+
+                        FirstName =
+                            c.SubmittedByUser.FirstName,
+
+                        LastName =
+                            c.SubmittedByUser.LastName,
+
+                        Email =
+                            c.SubmittedByUser.Email
+                    },
+
+                AssignedTo =
+                    c.AssignedToUser == null
+                        ? null
+                        : new UserSummaryResponse
+                        {
+                            Id =
+                                c.AssignedToUser.Id,
+
+                            FirstName =
+                                c.AssignedToUser.FirstName,
+
+                            LastName =
+                                c.AssignedToUser.LastName,
+
+                            Email =
+                                c.AssignedToUser.Email
+                        }
+            };
 }
