@@ -25,4 +25,8 @@ public sealed class Complaint
     public Guid SubmittedByUserId { get; set; }
 
     public ApplicationUser SubmittedByUser { get; set; } = null!;
+    
+    public Guid? AssignedToUserId { get; set; }
+
+    public ApplicationUser? AssignedToUser { get; set; }
 }
