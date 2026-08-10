@@ -168,7 +168,7 @@ public sealed class ComplaintsController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAll(
+    public async Task<ActionResult<PaginatedResponse<ComplaintResponse>>> GetAll(
         [FromQuery] GetComplaintsRequest request)
     {
         if (request.Page < 1)
@@ -189,11 +189,35 @@ public sealed class ComplaintsController(
                     "PageSize must be between 1 and 100."
             });
         }
+        
+        if (request.CreatedFrom.HasValue &&
+            request.CreatedTo.HasValue &&
+            request.CreatedFrom.Value.Date >
+            request.CreatedTo.Value.Date)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "CreatedFrom cannot be later than CreatedTo."
+            });
+        }
+        
 
         var query = context.Complaints
             .AsNoTracking()
             .AsQueryable();
+        
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var search = $"%{request.Search.Trim()}%";
 
+            query = query.Where(c =>
+                EF.Functions.ILike(c.Title, search) ||
+                EF.Functions.ILike(c.Description, search) ||
+                EF.Functions.ILike(c.Category, search) ||
+                EF.Functions.ILike(c.Location, search));
+        }
+        
         if (request.Status.HasValue)
         {
             query = query.Where(c =>
@@ -223,13 +247,103 @@ public sealed class ComplaintsController(
                     c.Location,
                     $"%{location}%"));
         }
+        
+        
+        if (request.AssignedToUserId.HasValue)
+        {
+            query = query.Where(c =>
+                c.AssignedToUserId == request.AssignedToUserId.Value);
+        }
+        
+        
+        if (request.CreatedFrom.HasValue)
+        {
+            var createdFrom = DateTime.SpecifyKind(
+                request.CreatedFrom.Value.Date,
+                DateTimeKind.Utc);
+
+            query = query.Where(c =>
+                c.CreatedAt >= createdFrom);
+        }
+
+        if (request.CreatedTo.HasValue)
+        {
+            var createdToExclusive = DateTime.SpecifyKind(
+                request.CreatedTo.Value.Date.AddDays(1),
+                DateTimeKind.Utc);
+
+            query = query.Where(c =>
+                c.CreatedAt < createdToExclusive);
+        }
 
         var totalCount =
             await query.CountAsync();
 
+        var allowedSortFields = new[]
+        {
+            "createdat",
+            "title",
+            "category",
+            "status"
+        };
+
+        var sortBy =
+            request.SortBy?.Trim().ToLowerInvariant()
+            ?? "createdat";
+
+        var sortDirection =
+            request.SortDirection?.Trim().ToLowerInvariant()
+            ?? "desc";
+
+        if (!allowedSortFields.Contains(sortBy))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "SortBy must be one of: createdAt, title, category, status."
+            });
+        }
+
+        if (sortDirection is not ("asc" or "desc"))
+        {
+            return BadRequest(new
+            {
+                message =
+                    "SortDirection must be either asc or desc."
+            });
+        }
+        
+        query = (sortBy, sortDirection) switch
+        {
+            ("createdat", "asc") =>
+                query.OrderBy(c => c.CreatedAt),
+
+            ("createdat", "desc") =>
+                query.OrderByDescending(c => c.CreatedAt),
+
+            ("title", "asc") =>
+                query.OrderBy(c => c.Title),
+
+            ("title", "desc") =>
+                query.OrderByDescending(c => c.Title),
+
+            ("category", "asc") =>
+                query.OrderBy(c => c.Category),
+
+            ("category", "desc") =>
+                query.OrderByDescending(c => c.Category),
+
+            ("status", "asc") =>
+                query.OrderBy(c => c.Status),
+
+            ("status", "desc") =>
+                query.OrderByDescending(c => c.Status),
+
+            _ =>
+                query.OrderByDescending(c => c.CreatedAt)
+        };
+        
         var complaints = await query
-            .OrderByDescending(c =>
-                c.CreatedAt)
             .Skip(
                 (request.Page - 1) *
                 request.PageSize)
