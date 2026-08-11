@@ -20,6 +20,9 @@ public class AppDbContext
 
     public DbSet<ComplaintStatusHistory> ComplaintStatusHistories =>
         Set<ComplaintStatusHistory>();
+    
+    public DbSet<ComplaintAssignmentHistory> ComplaintAssignmentHistories =>
+        Set<ComplaintAssignmentHistory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -32,6 +35,30 @@ public class AppDbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<ComplaintStatusHistory>()
+            .HasOne(h => h.ChangedByUser)
+            .WithMany()
+            .HasForeignKey(h => h.ChangedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.Entity<ComplaintAssignmentHistory>()
+            .HasOne(h => h.Complaint)
+            .WithMany(c => c.AssignmentHistory)
+            .HasForeignKey(h => h.ComplaintId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ComplaintAssignmentHistory>()
+            .HasOne(h => h.OldAssignedToUser)
+            .WithMany()
+            .HasForeignKey(h => h.OldAssignedToUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ComplaintAssignmentHistory>()
+            .HasOne(h => h.NewAssignedToUser)
+            .WithMany()
+            .HasForeignKey(h => h.NewAssignedToUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ComplaintAssignmentHistory>()
             .HasOne(h => h.ChangedByUser)
             .WithMany()
             .HasForeignKey(h => h.ChangedByUserId)

@@ -301,124 +301,161 @@ public sealed class ComplaintsController(
 
 
     [HttpPatch("{id:guid}/assign")]
-    [Authorize(Roles = AppRoles.Admin)]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> AssignComplaint(
-        Guid id,
-        AssignComplaintRequest request)
-    {
-        var complaint = await context.Complaints
-            .FirstOrDefaultAsync(c =>
-                c.Id == id);
+[Authorize(Roles = AppRoles.Admin)]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status400BadRequest)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
+[ProducesResponseType(StatusCodes.Status404NotFound)]
+public async Task<IActionResult> AssignComplaint(
+    Guid id,
+    AssignComplaintRequest request)
+{
+    var complaint = await context.Complaints
+        .FirstOrDefaultAsync(c =>
+            c.Id == id);
 
-        if (complaint is null)
-            return NotFound(new
-            {
-                message = "Complaint not found."
-            });
-
-        if (complaint.Status != ComplaintStatus.Submitted &&
-            complaint.Status != ComplaintStatus.UnderReview)
-            return BadRequest(new
-            {
-                message =
-                    "Only submitted or under review complaints can be assigned."
-            });
-
-        var staff = await userManager.FindByIdAsync(
-            request.StaffUserId.ToString());
-
-        if (staff is null)
-            return NotFound(new
-            {
-                message = "Staff user not found."
-            });
-
-        var isStaff =
-            await userManager.IsInRoleAsync(
-                staff,
-                AppRoles.Staff);
-
-        if (!isStaff)
-            return BadRequest(new
-            {
-                message =
-                    "The selected user does not have the Staff role."
-            });
-
-        var currentUserIdValue =
-            User.FindFirstValue(
-                ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(
-                currentUserIdValue,
-                out var currentUserId))
-            return Unauthorized(new
-            {
-                message = "Invalid user identity."
-            });
-
-        var now = DateTime.UtcNow;
-
-        complaint.AssignedToUserId =
-            staff.Id;
-
-        if (complaint.Status ==
-            ComplaintStatus.Submitted)
+    if (complaint is null)
+        return NotFound(new
         {
-            var oldStatus =
-                complaint.Status;
-
-            complaint.Status =
-                ComplaintStatus.UnderReview;
-
-            var history =
-                new ComplaintStatusHistory
-                {
-                    Id = Guid.NewGuid(),
-                    ComplaintId = complaint.Id,
-                    OldStatus = oldStatus,
-                    NewStatus =
-                        ComplaintStatus.UnderReview,
-                    ChangedByUserId =
-                        currentUserId,
-                    ChangedAtUtc = now,
-                    Note =
-                        "Status automatically changed when complaint was assigned."
-                };
-
-            context.ComplaintStatusHistories.Add(
-                history);
-        }
-
-        complaint.UpdatedAt =
-            now;
-
-        await context.SaveChangesAsync();
-
-        return Ok(new
-        {
-            complaint.Id,
-
-            Status =
-                complaint.Status.ToString(),
-
-            AssignedTo =
-                new UserSummaryResponse
-                {
-                    Id = staff.Id,
-                    FirstName = staff.FirstName,
-                    LastName = staff.LastName,
-                    Email = staff.Email
-                },
-
-            complaint.UpdatedAt
+            message = "Complaint not found."
         });
+
+    if (complaint.Status != ComplaintStatus.Submitted &&
+        complaint.Status != ComplaintStatus.UnderReview)
+        return BadRequest(new
+        {
+            message =
+                "Only submitted or under review complaints can be assigned."
+        });
+
+    var staff = await userManager.FindByIdAsync(
+        request.StaffUserId.ToString());
+
+    if (staff is null)
+        return NotFound(new
+        {
+            message = "Staff user not found."
+        });
+
+    var isStaff =
+        await userManager.IsInRoleAsync(
+            staff,
+            AppRoles.Staff);
+
+    if (!isStaff)
+        return BadRequest(new
+        {
+            message =
+                "The selected user does not have the Staff role."
+        });
+
+    var currentUserIdValue =
+        User.FindFirstValue(
+            ClaimTypes.NameIdentifier);
+
+    if (!Guid.TryParse(
+            currentUserIdValue,
+            out var currentUserId))
+        return Unauthorized(new
+        {
+            message = "Invalid user identity."
+        });
+
+    if (complaint.AssignedToUserId == staff.Id)
+        return BadRequest(new
+        {
+            message =
+                "Complaint is already assigned to this staff member."
+        });
+
+    var now = DateTime.UtcNow;
+
+    var oldAssignedToUserId =
+        complaint.AssignedToUserId;
+
+    var assignmentHistory =
+        new ComplaintAssignmentHistory
+        {
+            Id = Guid.NewGuid(),
+            ComplaintId = complaint.Id,
+
+            OldAssignedToUserId =
+                oldAssignedToUserId,
+
+            NewAssignedToUserId =
+                staff.Id,
+
+            ChangedByUserId =
+                currentUserId,
+
+            ChangedAtUtc =
+                now,
+
+            Note =
+                oldAssignedToUserId.HasValue
+                    ? "Complaint reassigned to another staff member."
+                    : "Complaint assigned to staff."
+        };
+
+    context.ComplaintAssignmentHistories.Add(
+        assignmentHistory);
+
+    complaint.AssignedToUserId =
+        staff.Id;
+
+    if (complaint.Status ==
+        ComplaintStatus.Submitted)
+    {
+        var oldStatus =
+            complaint.Status;
+
+        complaint.Status =
+            ComplaintStatus.UnderReview;
+
+        var statusHistory =
+            new ComplaintStatusHistory
+            {
+                Id = Guid.NewGuid(),
+                ComplaintId = complaint.Id,
+                OldStatus = oldStatus,
+                NewStatus =
+                    ComplaintStatus.UnderReview,
+                ChangedByUserId =
+                    currentUserId,
+                ChangedAtUtc = now,
+                Note =
+                    "Status automatically changed when complaint was assigned."
+            };
+
+        context.ComplaintStatusHistories.Add(
+            statusHistory);
     }
+
+    complaint.UpdatedAt =
+        now;
+
+    await context.SaveChangesAsync();
+
+    return Ok(new
+    {
+        complaint.Id,
+
+        Status =
+            complaint.Status.ToString(),
+
+        AssignedTo =
+            new UserSummaryResponse
+            {
+                Id = staff.Id,
+                FirstName = staff.FirstName,
+                LastName = staff.LastName,
+                Email = staff.Email
+            },
+
+        complaint.UpdatedAt
+    });
+}
 
 
     [HttpPatch("{id:guid}/priority")]
@@ -660,4 +697,107 @@ public sealed class ComplaintsController(
 
         return Ok(history);
     }
+    
+    [HttpGet("{id:guid}/assignment-history")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
+[ProducesResponseType(StatusCodes.Status404NotFound)]
+public async Task<ActionResult<List<ComplaintAssignmentHistoryResponse>>> GetAssignmentHistory(
+    Guid id)
+{
+    var userIdValue =
+        User.FindFirstValue(
+            ClaimTypes.NameIdentifier);
+
+    if (!Guid.TryParse(
+            userIdValue,
+            out var userId))
+        return Unauthorized(new
+        {
+            message = "Invalid user identity."
+        });
+
+    var complaint = await context.Complaints
+        .AsNoTracking()
+        .Where(c => c.Id == id)
+        .Select(c => new
+        {
+            c.SubmittedByUserId,
+            c.AssignedToUserId
+        })
+        .FirstOrDefaultAsync();
+
+    if (complaint is null)
+        return NotFound(new
+        {
+            message = "Complaint not found."
+        });
+
+    var isAdmin =
+        User.IsInRole(AppRoles.Admin);
+
+    var isStaff =
+        User.IsInRole(AppRoles.Staff);
+
+    var isOwner =
+        complaint.SubmittedByUserId == userId;
+
+    var isAssignedStaff =
+        isStaff &&
+        complaint.AssignedToUserId == userId;
+
+    if (!isAdmin &&
+        !isOwner &&
+        !isAssignedStaff)
+        return Forbid();
+
+    var history = await context.ComplaintAssignmentHistories
+        .AsNoTracking()
+        .Where(h =>
+            h.ComplaintId == id)
+        .OrderByDescending(h =>
+            h.ChangedAtUtc)
+        .Select(h =>
+            new ComplaintAssignmentHistoryResponse
+            {
+                Id = h.Id,
+
+                OldAssignedToUserId =
+                    h.OldAssignedToUserId,
+
+                OldAssignedToName =
+                    h.OldAssignedToUser == null
+                        ? null
+                        : h.OldAssignedToUser.FirstName +
+                          " " +
+                          h.OldAssignedToUser.LastName,
+
+                NewAssignedToUserId =
+                    h.NewAssignedToUserId,
+
+                NewAssignedToName =
+                    h.NewAssignedToUser.FirstName +
+                    " " +
+                    h.NewAssignedToUser.LastName,
+
+                ChangedByUserId =
+                    h.ChangedByUserId,
+
+                ChangedByName =
+                    h.ChangedByUser.FirstName +
+                    " " +
+                    h.ChangedByUser.LastName,
+
+                ChangedAtUtc =
+                    h.ChangedAtUtc,
+
+                Note =
+                    h.Note
+            })
+        .ToListAsync();
+
+    return Ok(history);
+}
+
 }
