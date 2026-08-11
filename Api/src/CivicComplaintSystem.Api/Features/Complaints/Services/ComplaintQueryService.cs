@@ -31,7 +31,13 @@ public sealed class ComplaintQueryService(
             query = query.Where(c =>
                 c.Status == request.Status.Value);
         }
-
+        
+        if (request.Priority.HasValue)
+        {
+            query = query.Where(c =>
+                c.Priority == request.Priority.Value);
+        }
+        
         if (!string.IsNullOrWhiteSpace(
                 request.Category))
         {
@@ -126,6 +132,12 @@ public sealed class ComplaintQueryService(
 
             ("status", "desc") =>
                 query.OrderByDescending(c => c.Status),
+            
+            ("priority", "asc") =>
+                query.OrderBy(c => c.Priority),
+
+            ("priority", "desc") =>
+                query.OrderByDescending(c => c.Priority),
 
             _ =>
                 query.OrderByDescending(c =>

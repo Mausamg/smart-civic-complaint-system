@@ -4,6 +4,8 @@ public sealed class GetComplaintsRequest
 {
     public ComplaintStatus? Status { get; init; }
     
+    public ComplaintPriority? Priority { get; set; }
+    
     public string? Search { get; init; }
 
     public string? Category { get; init; }
@@ -11,6 +13,7 @@ public sealed class GetComplaintsRequest
     public string? Location { get; init; }
 
     public Guid? AssignedToUserId { get; set; }
+    
     public string SortBy { get; init; } = "createdAt";
     
     public string SortDirection { get; init; } = "desc";

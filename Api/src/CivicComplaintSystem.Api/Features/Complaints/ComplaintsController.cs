@@ -258,7 +258,8 @@ public sealed class ComplaintsController(
             "createdat",
             "title",
             "category",
-            "status"
+            "status",
+            "priority"
         };
 
         var sortBy =
@@ -277,7 +278,7 @@ public sealed class ComplaintsController(
             return BadRequest(new
             {
                 message =
-                    "SortBy must be one of: createdAt, title, category, status."
+                    "SortBy must be one of: createdAt, title, category, status, priority."
             });
 
         if (sortDirection is not ("asc" or "desc"))
