@@ -17,6 +17,9 @@ public static class ComplaintProjections
 
                 Status =
                     c.Status.ToString(),
+                
+                Priority =
+                    c.Priority.ToString(),
 
                 CreatedAt = c.CreatedAt,
                 UpdatedAt = c.UpdatedAt,

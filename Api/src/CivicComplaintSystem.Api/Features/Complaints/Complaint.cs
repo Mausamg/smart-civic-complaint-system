@@ -12,6 +12,9 @@ public sealed class Complaint
 
     public ComplaintStatus Status { get; set; }
         = ComplaintStatus.Submitted;
+    
+    public ComplaintPriority Priority { get; set; }
+        = ComplaintPriority.Medium;
 
     public required string Category { get; set; }
 

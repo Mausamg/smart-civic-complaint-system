@@ -13,10 +13,13 @@ public sealed class ComplaintResponse
     public string Location { get; init; } = string.Empty;
 
     public string Status { get; init; } = string.Empty;
+    
+    public string Priority { get; set; } = null!;
 
     public DateTime CreatedAt { get; init; }
 
     public DateTime? UpdatedAt { get; init; }
+    
 
     public Guid SubmittedByUserId { get; init; }
 

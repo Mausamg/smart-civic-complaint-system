@@ -127,6 +127,7 @@ public sealed class ComplaintsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id)
     {
+        
         var userIdValue =
             User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -150,6 +151,9 @@ public sealed class ComplaintsController(
                     Location = c.Location,
 
                     Status = c.Status.ToString(),
+                    
+                    Priority =
+                        c.Priority.ToString(),
 
                     CreatedAt = c.CreatedAt,
                     UpdatedAt = c.UpdatedAt,
@@ -371,6 +375,63 @@ public sealed class ComplaintsController(
         });
     }
 
+    
+    [HttpPatch("{id:guid}/priority")]
+    [Authorize(Roles = AppRoles.Admin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePriority(
+        Guid id,
+        UpdateComplaintPriorityRequest request)
+    {
+        if (!Enum.IsDefined(
+                typeof(ComplaintPriority),
+                request.Priority))
+            return BadRequest(new
+            {
+                message = "Invalid complaint priority."
+            });
+
+        var complaint = await context.Complaints
+            .FirstOrDefaultAsync(c =>
+                c.Id == id);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        if (complaint.Priority == request.Priority)
+            return BadRequest(new
+            {
+                message =
+                    $"Complaint priority is already {request.Priority}."
+            });
+
+        complaint.Priority =
+            request.Priority;
+
+        complaint.UpdatedAt =
+            DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            complaint.Id,
+
+            Priority =
+                complaint.Priority.ToString(),
+
+            complaint.UpdatedAt
+        });
+    }
+    
+    
 
     [HttpPatch("{id:guid}/status")]
     [Authorize(
