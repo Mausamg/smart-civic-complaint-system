@@ -176,10 +176,10 @@ public sealed class ComplaintsController(
         return Ok(complaints);
     }
 
-
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id)
     {
@@ -194,10 +194,52 @@ public sealed class ComplaintsController(
 
         var complaint = await context.Complaints
             .AsNoTracking()
-            .Where(c =>
-                c.Id == id &&
-                c.SubmittedByUserId == userId)
-            .Select(ComplaintResponseProjection)
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                Response = new ComplaintResponse
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    Description = c.Description,
+                    Category = c.Category,
+                    Location = c.Location,
+
+                    Status = c.Status.ToString(),
+
+                    CreatedAt = c.CreatedAt,
+                    UpdatedAt = c.UpdatedAt,
+
+                    SubmittedByUserId =
+                        c.SubmittedByUserId,
+
+                    AssignedToUserId =
+                        c.AssignedToUserId,
+
+                    SubmittedBy =
+                        new UserSummaryResponse
+                        {
+                            Id = c.SubmittedByUser.Id,
+                            FirstName = c.SubmittedByUser.FirstName,
+                            LastName = c.SubmittedByUser.LastName,
+                            Email = c.SubmittedByUser.Email
+                        },
+
+                    AssignedTo =
+                        c.AssignedToUser == null
+                            ? null
+                            : new UserSummaryResponse
+                            {
+                                Id = c.AssignedToUser.Id,
+                                FirstName = c.AssignedToUser.FirstName,
+                                LastName = c.AssignedToUser.LastName,
+                                Email = c.AssignedToUser.Email
+                            }
+                },
+
+                c.SubmittedByUserId,
+                c.AssignedToUserId
+            })
             .FirstOrDefaultAsync();
 
         if (complaint is null)
@@ -206,7 +248,25 @@ public sealed class ComplaintsController(
                 message = "Complaint not found."
             });
 
-        return Ok(complaint);
+        var isAdmin =
+            User.IsInRole(AppRoles.Admin);
+
+        var isStaff =
+            User.IsInRole(AppRoles.Staff);
+
+        var isOwner =
+            complaint.SubmittedByUserId == userId;
+
+        var isAssignedStaff =
+            isStaff &&
+            complaint.AssignedToUserId == userId;
+
+        if (!isAdmin &&
+            !isOwner &&
+            !isAssignedStaff)
+            return Forbid();
+
+        return Ok(complaint.Response);
     }
 
 
@@ -595,7 +655,7 @@ public sealed class ComplaintsController(
             _ => false
         };
     }
-    
+
     [HttpGet("{id:guid}/history")]
     [Authorize(
         Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
@@ -611,12 +671,10 @@ public sealed class ComplaintsController(
             .AnyAsync(c => c.Id == id);
 
         if (!complaintExists)
-        {
             return NotFound(new
             {
                 message = "Complaint not found."
             });
-        }
 
         var history = await context.ComplaintStatusHistories
             .AsNoTracking()
