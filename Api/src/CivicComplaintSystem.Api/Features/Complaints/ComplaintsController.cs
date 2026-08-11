@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using System.Security.Claims;
 using CivicComplaintSystem.Api.Data;
 using CivicComplaintSystem.Api.Features.Users;
@@ -6,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using CivicComplaintSystem.Api.Features.Complaints.Services;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
 
@@ -14,66 +14,10 @@ namespace CivicComplaintSystem.Api.Features.Complaints;
 [Authorize]
 public sealed class ComplaintsController(
     AppDbContext context,
-    UserManager<ApplicationUser> userManager)
+    UserManager<ApplicationUser> userManager,
+    ComplaintQueryService complaintQueryService)
     : ControllerBase
 {
-    private static readonly
-        Expression<Func<Complaint, ComplaintResponse>>
-        ComplaintResponseProjection =
-            c => new ComplaintResponse
-            {
-                Id = c.Id,
-                Title = c.Title,
-                Description = c.Description,
-                Category = c.Category,
-                Location = c.Location,
-
-                Status =
-                    c.Status.ToString(),
-
-                CreatedAt = c.CreatedAt,
-                UpdatedAt = c.UpdatedAt,
-
-                SubmittedByUserId =
-                    c.SubmittedByUserId,
-
-                AssignedToUserId =
-                    c.AssignedToUserId,
-
-                SubmittedBy =
-                    new UserSummaryResponse
-                    {
-                        Id =
-                            c.SubmittedByUser.Id,
-
-                        FirstName =
-                            c.SubmittedByUser.FirstName,
-
-                        LastName =
-                            c.SubmittedByUser.LastName,
-
-                        Email =
-                            c.SubmittedByUser.Email
-                    },
-
-                AssignedTo =
-                    c.AssignedToUser == null
-                        ? null
-                        : new UserSummaryResponse
-                        {
-                            Id =
-                                c.AssignedToUser.Id,
-
-                            FirstName =
-                                c.AssignedToUser.FirstName,
-
-                            LastName =
-                                c.AssignedToUser.LastName,
-
-                            Email =
-                                c.AssignedToUser.Email
-                        }
-            };
 
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -141,7 +85,7 @@ public sealed class ComplaintsController(
                 c.SubmittedByUserId == userId)
             .OrderByDescending(c =>
                 c.CreatedAt)
-            .Select(ComplaintResponseProjection)
+            .Select(ComplaintProjections.ToResponse)
             .ToListAsync();
 
         return Ok(complaints);
@@ -170,7 +114,7 @@ public sealed class ComplaintsController(
                 c.AssignedToUserId == userId)
             .OrderByDescending(c =>
                 c.UpdatedAt ?? c.CreatedAt)
-            .Select(ComplaintResponseProjection)
+            .Select(ComplaintProjections.ToResponse)
             .ToListAsync();
 
         return Ok(complaints);
@@ -269,7 +213,7 @@ public sealed class ComplaintsController(
         return Ok(complaint.Response);
     }
 
-
+    
     [HttpGet]
     [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -277,7 +221,8 @@ public sealed class ComplaintsController(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PaginatedResponse<ComplaintResponse>>> GetAll(
-        [FromQuery] GetComplaintsRequest request)
+        [FromQuery] GetComplaintsRequest request,
+        CancellationToken cancellationToken)
     {
         if (request.Page < 1)
             return BadRequest(new
@@ -304,79 +249,6 @@ public sealed class ComplaintsController(
                     "CreatedFrom cannot be later than CreatedTo."
             });
 
-
-        var query = context.Complaints
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(request.Search))
-        {
-            var search = $"%{request.Search.Trim()}%";
-
-            query = query.Where(c =>
-                EF.Functions.ILike(c.Title, search) ||
-                EF.Functions.ILike(c.Description, search) ||
-                EF.Functions.ILike(c.Category, search) ||
-                EF.Functions.ILike(c.Location, search));
-        }
-
-        if (request.Status.HasValue)
-            query = query.Where(c =>
-                c.Status == request.Status.Value);
-
-        if (!string.IsNullOrWhiteSpace(
-                request.Category))
-        {
-            var category =
-                request.Category.Trim();
-
-            query = query.Where(c =>
-                EF.Functions.ILike(
-                    c.Category,
-                    category));
-        }
-
-        if (!string.IsNullOrWhiteSpace(
-                request.Location))
-        {
-            var location =
-                request.Location.Trim();
-
-            query = query.Where(c =>
-                EF.Functions.ILike(
-                    c.Location,
-                    $"%{location}%"));
-        }
-
-
-        if (request.AssignedToUserId.HasValue)
-            query = query.Where(c =>
-                c.AssignedToUserId == request.AssignedToUserId.Value);
-
-
-        if (request.CreatedFrom.HasValue)
-        {
-            var createdFrom = DateTime.SpecifyKind(
-                request.CreatedFrom.Value.Date,
-                DateTimeKind.Utc);
-
-            query = query.Where(c =>
-                c.CreatedAt >= createdFrom);
-        }
-
-        if (request.CreatedTo.HasValue)
-        {
-            var createdToExclusive = DateTime.SpecifyKind(
-                request.CreatedTo.Value.Date.AddDays(1),
-                DateTimeKind.Utc);
-
-            query = query.Where(c =>
-                c.CreatedAt < createdToExclusive);
-        }
-
-        var totalCount =
-            await query.CountAsync();
-
         var allowedSortFields = new[]
         {
             "createdat",
@@ -386,11 +258,15 @@ public sealed class ComplaintsController(
         };
 
         var sortBy =
-            request.SortBy?.Trim().ToLowerInvariant()
+            request.SortBy?
+                .Trim()
+                .ToLowerInvariant()
             ?? "createdat";
 
         var sortDirection =
-            request.SortDirection?.Trim().ToLowerInvariant()
+            request.SortDirection?
+                .Trim()
+                .ToLowerInvariant()
             ?? "desc";
 
         if (!allowedSortFields.Contains(sortBy))
@@ -407,59 +283,14 @@ public sealed class ComplaintsController(
                     "SortDirection must be either asc or desc."
             });
 
-        query = (sortBy, sortDirection) switch
-        {
-            ("createdat", "asc") =>
-                query.OrderBy(c => c.CreatedAt),
+        var result =
+            await complaintQueryService.GetAllAsync(
+                request,
+                cancellationToken);
 
-            ("createdat", "desc") =>
-                query.OrderByDescending(c => c.CreatedAt),
-
-            ("title", "asc") =>
-                query.OrderBy(c => c.Title),
-
-            ("title", "desc") =>
-                query.OrderByDescending(c => c.Title),
-
-            ("category", "asc") =>
-                query.OrderBy(c => c.Category),
-
-            ("category", "desc") =>
-                query.OrderByDescending(c => c.Category),
-
-            ("status", "asc") =>
-                query.OrderBy(c => c.Status),
-
-            ("status", "desc") =>
-                query.OrderByDescending(c => c.Status),
-
-            _ =>
-                query.OrderByDescending(c => c.CreatedAt)
-        };
-
-        var complaints = await query
-            .Skip(
-                (request.Page - 1) *
-                request.PageSize)
-            .Take(request.PageSize)
-            .Select(ComplaintResponseProjection)
-            .ToListAsync();
-
-        return Ok(
-            new PaginatedResponse<ComplaintResponse>
-            {
-                Page = request.Page,
-                PageSize = request.PageSize,
-                TotalCount = totalCount,
-
-                TotalPages =
-                    (int)Math.Ceiling(
-                        totalCount /
-                        (double)request.PageSize),
-
-                Items = complaints
-            });
+        return Ok(result);
     }
+    
 
 
     [HttpPatch("{id:guid}/assign")]
@@ -583,7 +414,7 @@ public sealed class ComplaintsController(
             complaint.AssignedToUserId != currentUserId)
             return Forbid();
 
-        if (!IsValidStatusTransition(
+        if (!ComplaintStatusRules.CanTransition(
                 complaint.Status,
                 request.Status))
             return BadRequest(new
@@ -625,36 +456,7 @@ public sealed class ComplaintsController(
             complaint.UpdatedAt
         });
     }
-
-
-    private static bool IsValidStatusTransition(
-        ComplaintStatus currentStatus,
-        ComplaintStatus newStatus)
-    {
-        return currentStatus switch
-        {
-            ComplaintStatus.Submitted =>
-                newStatus == ComplaintStatus.UnderReview ||
-                newStatus == ComplaintStatus.Rejected,
-
-            ComplaintStatus.UnderReview =>
-                newStatus == ComplaintStatus.InProgress ||
-                newStatus == ComplaintStatus.Resolved ||
-                newStatus == ComplaintStatus.Rejected,
-
-            ComplaintStatus.InProgress =>
-                newStatus == ComplaintStatus.Resolved ||
-                newStatus == ComplaintStatus.Rejected,
-
-            ComplaintStatus.Resolved =>
-                false,
-
-            ComplaintStatus.Rejected =>
-                false,
-
-            _ => false
-        };
-    }
+    
 
     [HttpGet("{id:guid}/history")]
     [Authorize(
