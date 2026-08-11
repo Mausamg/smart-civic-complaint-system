@@ -59,6 +59,7 @@ public sealed class ComplaintsController(
                 complaint.Category,
                 complaint.Location,
                 Status = complaint.Status.ToString(),
+                Priority = complaint.Priority.ToString(),
                 complaint.CreatedAt
             });
     }
@@ -449,6 +450,14 @@ public sealed class ComplaintsController(
                 message = "Complaint not found."
             });
 
+        if (complaint.Status == ComplaintStatus.Resolved ||
+            complaint.Status == ComplaintStatus.Rejected)
+            return BadRequest(new
+            {
+                message =
+                    "Priority cannot be changed for resolved or rejected complaints."
+            });
+        
         if (complaint.Priority == request.Priority)
             return BadRequest(new
             {
@@ -563,8 +572,6 @@ public sealed class ComplaintsController(
 
 
     [HttpGet("{id:guid}/history")]
-    [Authorize(
-        Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -572,38 +579,83 @@ public sealed class ComplaintsController(
     public async Task<ActionResult<List<ComplaintStatusHistoryResponse>>> GetHistory(
         Guid id)
     {
-        var complaintExists = await context.Complaints
-            .AsNoTracking()
-            .AnyAsync(c => c.Id == id);
+        var userIdValue =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
 
-        if (!complaintExists)
+        if (!Guid.TryParse(
+                userIdValue,
+                out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.SubmittedByUserId,
+                c.AssignedToUserId
+            })
+            .FirstOrDefaultAsync();
+
+        if (complaint is null)
             return NotFound(new
             {
                 message = "Complaint not found."
             });
 
+        var isAdmin =
+            User.IsInRole(AppRoles.Admin);
+
+        var isStaff =
+            User.IsInRole(AppRoles.Staff);
+
+        var isOwner =
+            complaint.SubmittedByUserId == userId;
+
+        var isAssignedStaff =
+            isStaff &&
+            complaint.AssignedToUserId == userId;
+
+        if (!isAdmin &&
+            !isOwner &&
+            !isAssignedStaff)
+            return Forbid();
+
         var history = await context.ComplaintStatusHistories
             .AsNoTracking()
-            .Where(h => h.ComplaintId == id)
-            .OrderByDescending(h => h.ChangedAtUtc)
-            .Select(h => new ComplaintStatusHistoryResponse
-            {
-                Id = h.Id,
+            .Where(h =>
+                h.ComplaintId == id)
+            .OrderByDescending(h =>
+                h.ChangedAtUtc)
+            .Select(h =>
+                new ComplaintStatusHistoryResponse
+                {
+                    Id = h.Id,
 
-                OldStatus = h.OldStatus.ToString(),
+                    OldStatus =
+                        h.OldStatus.ToString(),
 
-                NewStatus = h.NewStatus.ToString(),
+                    NewStatus =
+                        h.NewStatus.ToString(),
 
-                ChangedByUserId = h.ChangedByUserId,
+                    ChangedByUserId =
+                        h.ChangedByUserId,
 
-                ChangedByName =
-                    h.ChangedByUser.FirstName + " " +
-                    h.ChangedByUser.LastName,
+                    ChangedByName =
+                        h.ChangedByUser.FirstName +
+                        " " +
+                        h.ChangedByUser.LastName,
 
-                ChangedAtUtc = h.ChangedAtUtc,
+                    ChangedAtUtc =
+                        h.ChangedAtUtc,
 
-                Note = h.Note
-            })
+                    Note =
+                        h.Note
+                })
             .ToListAsync();
 
         return Ok(history);
