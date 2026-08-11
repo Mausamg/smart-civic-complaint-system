@@ -1,11 +1,11 @@
 using System.Security.Claims;
 using CivicComplaintSystem.Api.Data;
+using CivicComplaintSystem.Api.Features.Complaints.Services;
 using CivicComplaintSystem.Api.Features.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using CivicComplaintSystem.Api.Features.Complaints.Services;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
 
@@ -18,7 +18,6 @@ public sealed class ComplaintsController(
     ComplaintQueryService complaintQueryService)
     : ControllerBase
 {
-
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -111,8 +110,12 @@ public sealed class ComplaintsController(
         var complaints = await context.Complaints
             .AsNoTracking()
             .Where(c =>
-                c.AssignedToUserId == userId)
+                c.AssignedToUserId == userId &&
+                c.Status != ComplaintStatus.Resolved &&
+                c.Status != ComplaintStatus.Rejected)
             .OrderByDescending(c =>
+                c.Priority)
+            .ThenByDescending(c =>
                 c.UpdatedAt ?? c.CreatedAt)
             .Select(ComplaintProjections.ToResponse)
             .ToListAsync();
@@ -127,7 +130,6 @@ public sealed class ComplaintsController(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id)
     {
-        
         var userIdValue =
             User.FindFirstValue(ClaimTypes.NameIdentifier);
 
@@ -151,7 +153,7 @@ public sealed class ComplaintsController(
                     Location = c.Location,
 
                     Status = c.Status.ToString(),
-                    
+
                     Priority =
                         c.Priority.ToString(),
 
@@ -217,7 +219,7 @@ public sealed class ComplaintsController(
         return Ok(complaint.Response);
     }
 
-    
+
     [HttpGet]
     [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -295,7 +297,6 @@ public sealed class ComplaintsController(
 
         return Ok(result);
     }
-    
 
 
     [HttpPatch("{id:guid}/assign")]
@@ -319,12 +320,12 @@ public sealed class ComplaintsController(
                 message = "Complaint not found."
             });
 
-        if (complaint.Status !=
-            ComplaintStatus.UnderReview)
+        if (complaint.Status != ComplaintStatus.Submitted &&
+            complaint.Status != ComplaintStatus.UnderReview)
             return BadRequest(new
             {
                 message =
-                    "Only complaints under review can be assigned."
+                    "Only submitted or under review complaints can be assigned."
             });
 
         var staff = await userManager.FindByIdAsync(
@@ -348,11 +349,53 @@ public sealed class ComplaintsController(
                     "The selected user does not have the Staff role."
             });
 
+        var currentUserIdValue =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        if (!Guid.TryParse(
+                currentUserIdValue,
+                out var currentUserId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var now = DateTime.UtcNow;
+
         complaint.AssignedToUserId =
             staff.Id;
 
+        if (complaint.Status ==
+            ComplaintStatus.Submitted)
+        {
+            var oldStatus =
+                complaint.Status;
+
+            complaint.Status =
+                ComplaintStatus.UnderReview;
+
+            var history =
+                new ComplaintStatusHistory
+                {
+                    Id = Guid.NewGuid(),
+                    ComplaintId = complaint.Id,
+                    OldStatus = oldStatus,
+                    NewStatus =
+                        ComplaintStatus.UnderReview,
+                    ChangedByUserId =
+                        currentUserId,
+                    ChangedAtUtc = now,
+                    Note =
+                        "Status automatically changed when complaint was assigned."
+                };
+
+            context.ComplaintStatusHistories.Add(
+                history);
+        }
+
         complaint.UpdatedAt =
-            DateTime.UtcNow;
+            now;
 
         await context.SaveChangesAsync();
 
@@ -376,7 +419,7 @@ public sealed class ComplaintsController(
         });
     }
 
-    
+
     [HttpPatch("{id:guid}/priority")]
     [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -431,8 +474,7 @@ public sealed class ComplaintsController(
             complaint.UpdatedAt
         });
     }
-    
-    
+
 
     [HttpPatch("{id:guid}/status")]
     [Authorize(
@@ -518,7 +560,7 @@ public sealed class ComplaintsController(
             complaint.UpdatedAt
         });
     }
-    
+
 
     [HttpGet("{id:guid}/history")]
     [Authorize(
