@@ -24,6 +24,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<ComplaintQueryService>();
+builder.Services.AddScoped<ComplaintCommandService>();
+builder.Services.AddScoped<ComplaintAccessService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {

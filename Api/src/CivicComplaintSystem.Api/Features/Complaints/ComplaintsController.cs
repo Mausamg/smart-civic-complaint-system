@@ -15,39 +15,43 @@ namespace CivicComplaintSystem.Api.Features.Complaints;
 public sealed class ComplaintsController(
     AppDbContext context,
     UserManager<ApplicationUser> userManager,
-    ComplaintQueryService complaintQueryService)
+    ComplaintQueryService complaintQueryService,
+    ComplaintCommandService complaintCommandService,
+    ComplaintAccessService complaintAccessService)
     : ControllerBase
 {
+    private bool TryGetCurrentUserId(
+        out Guid userId)
+    {
+        var userIdValue =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        return Guid.TryParse(
+            userIdValue,
+            out userId);
+    }
+
+
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Create(
-        CreateComplaintRequest request)
+        CreateComplaintRequest request,
+        CancellationToken cancellationToken)
     {
-        var userIdValue =
-            User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(userIdValue, out var userId))
+        if (!TryGetCurrentUserId(
+                out var userId))
             return Unauthorized(new
             {
                 message = "Invalid user identity."
             });
 
-        var complaint = new Complaint
-        {
-            Id = Guid.NewGuid(),
-            Title = request.Title.Trim(),
-            Description = request.Description.Trim(),
-            Category = request.Category.Trim(),
-            Location = request.Location.Trim(),
-            Status = ComplaintStatus.Submitted,
-            CreatedAt = DateTime.UtcNow,
-            SubmittedByUserId = userId
-        };
-
-        context.Complaints.Add(complaint);
-
-        await context.SaveChangesAsync();
+        var complaint =
+            await complaintCommandService.CreateAsync(
+                userId,
+                request,
+                cancellationToken);
 
         return StatusCode(
             StatusCodes.Status201Created,
@@ -58,8 +62,13 @@ public sealed class ComplaintsController(
                 complaint.Description,
                 complaint.Category,
                 complaint.Location,
-                Status = complaint.Status.ToString(),
-                Priority = complaint.Priority.ToString(),
+
+                Status =
+                    complaint.Status.ToString(),
+
+                Priority =
+                    complaint.Priority.ToString(),
+
                 complaint.CreatedAt
             });
     }
@@ -68,25 +77,20 @@ public sealed class ComplaintsController(
     [HttpGet("my")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMyComplaints()
+    public async Task<IActionResult> GetMyComplaints(
+        CancellationToken cancellationToken)
     {
-        var userIdValue =
-            User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(userIdValue, out var userId))
+        if (!TryGetCurrentUserId(
+                out var userId))
             return Unauthorized(new
             {
                 message = "Invalid user identity."
             });
 
-        var complaints = await context.Complaints
-            .AsNoTracking()
-            .Where(c =>
-                c.SubmittedByUserId == userId)
-            .OrderByDescending(c =>
-                c.CreatedAt)
-            .Select(ComplaintProjections.ToResponse)
-            .ToListAsync();
+        var complaints =
+            await complaintQueryService.GetMyComplaintsAsync(
+                userId,
+                cancellationToken);
 
         return Ok(complaints);
     }
@@ -97,101 +101,45 @@ public sealed class ComplaintsController(
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAssignedToMe()
+    public async Task<IActionResult> GetAssignedToMe(
+        CancellationToken cancellationToken)
     {
-        var userIdValue =
-            User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(userIdValue, out var userId))
+        if (!TryGetCurrentUserId(
+                out var userId))
             return Unauthorized(new
             {
                 message = "Invalid user identity."
             });
 
-        var complaints = await context.Complaints
-            .AsNoTracking()
-            .Where(c =>
-                c.AssignedToUserId == userId &&
-                c.Status != ComplaintStatus.Resolved &&
-                c.Status != ComplaintStatus.Rejected)
-            .OrderByDescending(c =>
-                c.Priority)
-            .ThenByDescending(c =>
-                c.UpdatedAt ?? c.CreatedAt)
-            .Select(ComplaintProjections.ToResponse)
-            .ToListAsync();
+        var complaints =
+            await complaintQueryService.GetAssignedToMeAsync(
+                userId,
+                cancellationToken);
 
         return Ok(complaints);
     }
+
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(
+        Guid id,
+        CancellationToken cancellationToken)
     {
-        var userIdValue =
-            User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(userIdValue, out var userId))
+        if (!TryGetCurrentUserId(
+                out var userId))
             return Unauthorized(new
             {
                 message = "Invalid user identity."
             });
 
-        var complaint = await context.Complaints
-            .AsNoTracking()
-            .Where(c => c.Id == id)
-            .Select(c => new
-            {
-                Response = new ComplaintResponse
-                {
-                    Id = c.Id,
-                    Title = c.Title,
-                    Description = c.Description,
-                    Category = c.Category,
-                    Location = c.Location,
-
-                    Status = c.Status.ToString(),
-
-                    Priority =
-                        c.Priority.ToString(),
-
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt,
-
-                    SubmittedByUserId =
-                        c.SubmittedByUserId,
-
-                    AssignedToUserId =
-                        c.AssignedToUserId,
-
-                    SubmittedBy =
-                        new UserSummaryResponse
-                        {
-                            Id = c.SubmittedByUser.Id,
-                            FirstName = c.SubmittedByUser.FirstName,
-                            LastName = c.SubmittedByUser.LastName,
-                            Email = c.SubmittedByUser.Email
-                        },
-
-                    AssignedTo =
-                        c.AssignedToUser == null
-                            ? null
-                            : new UserSummaryResponse
-                            {
-                                Id = c.AssignedToUser.Id,
-                                FirstName = c.AssignedToUser.FirstName,
-                                LastName = c.AssignedToUser.LastName,
-                                Email = c.AssignedToUser.Email
-                            }
-                },
-
-                c.SubmittedByUserId,
-                c.AssignedToUserId
-            })
-            .FirstOrDefaultAsync();
+        var complaint =
+            await complaintQueryService.GetByIdAsync(
+                id,
+                cancellationToken);
 
         if (complaint is null)
             return NotFound(new
@@ -199,25 +147,18 @@ public sealed class ComplaintsController(
                 message = "Complaint not found."
             });
 
-        var isAdmin =
-            User.IsInRole(AppRoles.Admin);
+        var canView =
+            complaintAccessService.CanViewComplaint(
+                userId,
+                User.IsInRole(AppRoles.Admin),
+                User.IsInRole(AppRoles.Staff),
+                complaint.SubmittedByUserId,
+                complaint.AssignedToUserId);
 
-        var isStaff =
-            User.IsInRole(AppRoles.Staff);
-
-        var isOwner =
-            complaint.SubmittedByUserId == userId;
-
-        var isAssignedStaff =
-            isStaff &&
-            complaint.AssignedToUserId == userId;
-
-        if (!isAdmin &&
-            !isOwner &&
-            !isAssignedStaff)
+        if (!canView)
             return Forbid();
 
-        return Ok(complaint.Response);
+        return Ok(complaint);
     }
 
 
@@ -301,161 +242,97 @@ public sealed class ComplaintsController(
 
 
     [HttpPatch("{id:guid}/assign")]
-[Authorize(Roles = AppRoles.Admin)]
-[ProducesResponseType(StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status400BadRequest)]
-[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-[ProducesResponseType(StatusCodes.Status403Forbidden)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<IActionResult> AssignComplaint(
-    Guid id,
-    AssignComplaintRequest request)
-{
-    var complaint = await context.Complaints
-        .FirstOrDefaultAsync(c =>
-            c.Id == id);
-
-    if (complaint is null)
-        return NotFound(new
-        {
-            message = "Complaint not found."
-        });
-
-    if (complaint.Status != ComplaintStatus.Submitted &&
-        complaint.Status != ComplaintStatus.UnderReview)
-        return BadRequest(new
-        {
-            message =
-                "Only submitted or under review complaints can be assigned."
-        });
-
-    var staff = await userManager.FindByIdAsync(
-        request.StaffUserId.ToString());
-
-    if (staff is null)
-        return NotFound(new
-        {
-            message = "Staff user not found."
-        });
-
-    var isStaff =
-        await userManager.IsInRoleAsync(
-            staff,
-            AppRoles.Staff);
-
-    if (!isStaff)
-        return BadRequest(new
-        {
-            message =
-                "The selected user does not have the Staff role."
-        });
-
-    var currentUserIdValue =
-        User.FindFirstValue(
-            ClaimTypes.NameIdentifier);
-
-    if (!Guid.TryParse(
-            currentUserIdValue,
-            out var currentUserId))
-        return Unauthorized(new
-        {
-            message = "Invalid user identity."
-        });
-
-    if (complaint.AssignedToUserId == staff.Id)
-        return BadRequest(new
-        {
-            message =
-                "Complaint is already assigned to this staff member."
-        });
-
-    var now = DateTime.UtcNow;
-
-    var oldAssignedToUserId =
-        complaint.AssignedToUserId;
-
-    var assignmentHistory =
-        new ComplaintAssignmentHistory
-        {
-            Id = Guid.NewGuid(),
-            ComplaintId = complaint.Id,
-
-            OldAssignedToUserId =
-                oldAssignedToUserId,
-
-            NewAssignedToUserId =
-                staff.Id,
-
-            ChangedByUserId =
-                currentUserId,
-
-            ChangedAtUtc =
-                now,
-
-            Note =
-                oldAssignedToUserId.HasValue
-                    ? "Complaint reassigned to another staff member."
-                    : "Complaint assigned to staff."
-        };
-
-    context.ComplaintAssignmentHistories.Add(
-        assignmentHistory);
-
-    complaint.AssignedToUserId =
-        staff.Id;
-
-    if (complaint.Status ==
-        ComplaintStatus.Submitted)
+    [Authorize(Roles = AppRoles.Admin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AssignComplaint(
+        Guid id,
+        AssignComplaintRequest request,
+        CancellationToken cancellationToken)
     {
-        var oldStatus =
-            complaint.Status;
+        var complaint = await context.Complaints
+            .FirstOrDefaultAsync(
+                c => c.Id == id,
+                cancellationToken);
 
-        complaint.Status =
-            ComplaintStatus.UnderReview;
-
-        var statusHistory =
-            new ComplaintStatusHistory
+        if (complaint is null)
+            return NotFound(new
             {
-                Id = Guid.NewGuid(),
-                ComplaintId = complaint.Id,
-                OldStatus = oldStatus,
-                NewStatus =
-                    ComplaintStatus.UnderReview,
-                ChangedByUserId =
-                    currentUserId,
-                ChangedAtUtc = now,
-                Note =
-                    "Status automatically changed when complaint was assigned."
-            };
+                message = "Complaint not found."
+            });
 
-        context.ComplaintStatusHistories.Add(
-            statusHistory);
+        if (complaint.Status != ComplaintStatus.Submitted &&
+            complaint.Status != ComplaintStatus.UnderReview)
+            return BadRequest(new
+            {
+                message =
+                    "Only submitted or under review complaints can be assigned."
+            });
+
+        var staff =
+            await userManager.FindByIdAsync(
+                request.StaffUserId.ToString());
+
+        if (staff is null)
+            return NotFound(new
+            {
+                message = "Staff user not found."
+            });
+
+        var isStaff =
+            await userManager.IsInRoleAsync(
+                staff,
+                AppRoles.Staff);
+
+        if (!isStaff)
+            return BadRequest(new
+            {
+                message =
+                    "The selected user does not have the Staff role."
+            });
+
+        if (!TryGetCurrentUserId(
+                out var currentUserId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        if (complaint.AssignedToUserId == staff.Id)
+            return BadRequest(new
+            {
+                message =
+                    "Complaint is already assigned to this staff member."
+            });
+
+        await complaintCommandService.AssignAsync(
+            complaint,
+            staff.Id,
+            currentUserId,
+            cancellationToken);
+
+        return Ok(new
+        {
+            complaint.Id,
+
+            Status =
+                complaint.Status.ToString(),
+
+            AssignedTo =
+                new UserSummaryResponse
+                {
+                    Id = staff.Id,
+                    FirstName = staff.FirstName,
+                    LastName = staff.LastName,
+                    Email = staff.Email
+                },
+
+            complaint.UpdatedAt
+        });
     }
-
-    complaint.UpdatedAt =
-        now;
-
-    await context.SaveChangesAsync();
-
-    return Ok(new
-    {
-        complaint.Id,
-
-        Status =
-            complaint.Status.ToString(),
-
-        AssignedTo =
-            new UserSummaryResponse
-            {
-                Id = staff.Id,
-                FirstName = staff.FirstName,
-                LastName = staff.LastName,
-                Email = staff.Email
-            },
-
-        complaint.UpdatedAt
-    });
-}
 
 
     [HttpPatch("{id:guid}/priority")]
@@ -467,7 +344,8 @@ public async Task<IActionResult> AssignComplaint(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdatePriority(
         Guid id,
-        UpdateComplaintPriorityRequest request)
+        UpdateComplaintPriorityRequest request,
+        CancellationToken cancellationToken)
     {
         if (!Enum.IsDefined(
                 typeof(ComplaintPriority),
@@ -478,8 +356,10 @@ public async Task<IActionResult> AssignComplaint(
             });
 
         var complaint = await context.Complaints
-            .FirstOrDefaultAsync(c =>
-                c.Id == id);
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                c => c.Id == id,
+                cancellationToken);
 
         if (complaint is null)
             return NotFound(new
@@ -494,7 +374,7 @@ public async Task<IActionResult> AssignComplaint(
                 message =
                     "Priority cannot be changed for resolved or rejected complaints."
             });
-        
+
         if (complaint.Priority == request.Priority)
             return BadRequest(new
             {
@@ -502,22 +382,20 @@ public async Task<IActionResult> AssignComplaint(
                     $"Complaint priority is already {request.Priority}."
             });
 
-        complaint.Priority =
-            request.Priority;
-
-        complaint.UpdatedAt =
-            DateTime.UtcNow;
-
-        await context.SaveChangesAsync();
+        var updatedComplaint =
+            await complaintCommandService.UpdatePriorityAsync(
+                id,
+                request.Priority,
+                cancellationToken);
 
         return Ok(new
         {
-            complaint.Id,
+            updatedComplaint!.Id,
 
             Priority =
-                complaint.Priority.ToString(),
+                updatedComplaint.Priority.ToString(),
 
-            complaint.UpdatedAt
+            updatedComplaint.UpdatedAt
         });
     }
 
@@ -532,11 +410,13 @@ public async Task<IActionResult> AssignComplaint(
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateStatus(
         Guid id,
-        UpdateComplaintStatusRequest request)
+        UpdateComplaintStatusRequest request,
+        CancellationToken cancellationToken)
     {
         var complaint = await context.Complaints
-            .FirstOrDefaultAsync(c =>
-                c.Id == id);
+            .FirstOrDefaultAsync(
+                c => c.Id == id,
+                cancellationToken);
 
         if (complaint is null)
             return NotFound(new
@@ -544,17 +424,11 @@ public async Task<IActionResult> AssignComplaint(
                 message = "Complaint not found."
             });
 
-        var currentUserIdValue =
-            User.FindFirstValue(
-                ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(
-                currentUserIdValue,
+        if (!TryGetCurrentUserId(
                 out var currentUserId))
             return Unauthorized(new
             {
-                message =
-                    "Invalid user identity."
+                message = "Invalid user identity."
             });
 
         var isAdmin =
@@ -575,26 +449,11 @@ public async Task<IActionResult> AssignComplaint(
                     $"{request.Status}."
             });
 
-        var oldStatus = complaint.Status;
-        var now = DateTime.UtcNow;
-
-        complaint.Status = request.Status;
-        complaint.UpdatedAt = now;
-
-        var history = new ComplaintStatusHistory
-        {
-            Id = Guid.NewGuid(),
-            ComplaintId = complaint.Id,
-            OldStatus = oldStatus,
-            NewStatus = request.Status,
-            ChangedByUserId = currentUserId,
-            ChangedAtUtc = now,
-            Note = null
-        };
-
-        context.ComplaintStatusHistories.Add(history);
-
-        await context.SaveChangesAsync();
+        await complaintCommandService.UpdateStatusAsync(
+            complaint,
+            request.Status,
+            currentUserId,
+            cancellationToken);
 
         return Ok(new
         {
@@ -613,15 +472,12 @@ public async Task<IActionResult> AssignComplaint(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<List<ComplaintStatusHistoryResponse>>> GetHistory(
-        Guid id)
+    public async Task<ActionResult<List<ComplaintStatusHistoryResponse>>>
+        GetHistory(
+            Guid id,
+            CancellationToken cancellationToken)
     {
-        var userIdValue =
-            User.FindFirstValue(
-                ClaimTypes.NameIdentifier);
-
-        if (!Guid.TryParse(
-                userIdValue,
+        if (!TryGetCurrentUserId(
                 out var userId))
             return Unauthorized(new
             {
@@ -636,7 +492,8 @@ public async Task<IActionResult> AssignComplaint(
                 c.SubmittedByUserId,
                 c.AssignedToUserId
             })
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(
+                cancellationToken);
 
         if (complaint is null)
             return NotFound(new
@@ -644,160 +501,76 @@ public async Task<IActionResult> AssignComplaint(
                 message = "Complaint not found."
             });
 
-        var isAdmin =
-            User.IsInRole(AppRoles.Admin);
+        var canView =
+            complaintAccessService.CanViewComplaint(
+                userId,
+                User.IsInRole(AppRoles.Admin),
+                User.IsInRole(AppRoles.Staff),
+                complaint.SubmittedByUserId,
+                complaint.AssignedToUserId);
 
-        var isStaff =
-            User.IsInRole(AppRoles.Staff);
-
-        var isOwner =
-            complaint.SubmittedByUserId == userId;
-
-        var isAssignedStaff =
-            isStaff &&
-            complaint.AssignedToUserId == userId;
-
-        if (!isAdmin &&
-            !isOwner &&
-            !isAssignedStaff)
+        if (!canView)
             return Forbid();
 
-        var history = await context.ComplaintStatusHistories
-            .AsNoTracking()
-            .Where(h =>
-                h.ComplaintId == id)
-            .OrderByDescending(h =>
-                h.ChangedAtUtc)
-            .Select(h =>
-                new ComplaintStatusHistoryResponse
-                {
-                    Id = h.Id,
-
-                    OldStatus =
-                        h.OldStatus.ToString(),
-
-                    NewStatus =
-                        h.NewStatus.ToString(),
-
-                    ChangedByUserId =
-                        h.ChangedByUserId,
-
-                    ChangedByName =
-                        h.ChangedByUser.FirstName +
-                        " " +
-                        h.ChangedByUser.LastName,
-
-                    ChangedAtUtc =
-                        h.ChangedAtUtc,
-
-                    Note =
-                        h.Note
-                })
-            .ToListAsync();
+        var history =
+            await complaintQueryService.GetStatusHistoryAsync(
+                id,
+                cancellationToken);
 
         return Ok(history);
     }
-    
+
+
     [HttpGet("{id:guid}/assignment-history")]
-[ProducesResponseType(StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-[ProducesResponseType(StatusCodes.Status403Forbidden)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<ActionResult<List<ComplaintAssignmentHistoryResponse>>> GetAssignmentHistory(
-    Guid id)
-{
-    var userIdValue =
-        User.FindFirstValue(
-            ClaimTypes.NameIdentifier);
-
-    if (!Guid.TryParse(
-            userIdValue,
-            out var userId))
-        return Unauthorized(new
-        {
-            message = "Invalid user identity."
-        });
-
-    var complaint = await context.Complaints
-        .AsNoTracking()
-        .Where(c => c.Id == id)
-        .Select(c => new
-        {
-            c.SubmittedByUserId,
-            c.AssignedToUserId
-        })
-        .FirstOrDefaultAsync();
-
-    if (complaint is null)
-        return NotFound(new
-        {
-            message = "Complaint not found."
-        });
-
-    var isAdmin =
-        User.IsInRole(AppRoles.Admin);
-
-    var isStaff =
-        User.IsInRole(AppRoles.Staff);
-
-    var isOwner =
-        complaint.SubmittedByUserId == userId;
-
-    var isAssignedStaff =
-        isStaff &&
-        complaint.AssignedToUserId == userId;
-
-    if (!isAdmin &&
-        !isOwner &&
-        !isAssignedStaff)
-        return Forbid();
-
-    var history = await context.ComplaintAssignmentHistories
-        .AsNoTracking()
-        .Where(h =>
-            h.ComplaintId == id)
-        .OrderByDescending(h =>
-            h.ChangedAtUtc)
-        .Select(h =>
-            new ComplaintAssignmentHistoryResponse
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<ComplaintAssignmentHistoryResponse>>>
+        GetAssignmentHistory(
+            Guid id,
+            CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(
+                out var userId))
+            return Unauthorized(new
             {
-                Id = h.Id,
+                message = "Invalid user identity."
+            });
 
-                OldAssignedToUserId =
-                    h.OldAssignedToUserId,
-
-                OldAssignedToName =
-                    h.OldAssignedToUser == null
-                        ? null
-                        : h.OldAssignedToUser.FirstName +
-                          " " +
-                          h.OldAssignedToUser.LastName,
-
-                NewAssignedToUserId =
-                    h.NewAssignedToUserId,
-
-                NewAssignedToName =
-                    h.NewAssignedToUser.FirstName +
-                    " " +
-                    h.NewAssignedToUser.LastName,
-
-                ChangedByUserId =
-                    h.ChangedByUserId,
-
-                ChangedByName =
-                    h.ChangedByUser.FirstName +
-                    " " +
-                    h.ChangedByUser.LastName,
-
-                ChangedAtUtc =
-                    h.ChangedAtUtc,
-
-                Note =
-                    h.Note
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.SubmittedByUserId,
+                c.AssignedToUserId
             })
-        .ToListAsync();
+            .FirstOrDefaultAsync(
+                cancellationToken);
 
-    return Ok(history);
-}
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
 
+        var canView =
+            complaintAccessService.CanViewComplaint(
+                userId,
+                User.IsInRole(AppRoles.Admin),
+                User.IsInRole(AppRoles.Staff),
+                complaint.SubmittedByUserId,
+                complaint.AssignedToUserId);
+
+        if (!canView)
+            return Forbid();
+
+        var history =
+            await complaintQueryService.GetAssignmentHistoryAsync(
+                id,
+                cancellationToken);
+
+        return Ok(history);
+    }
 }

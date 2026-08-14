@@ -169,4 +169,140 @@ public sealed class ComplaintQueryService(
             Items = complaints
         };
     }
+    
+    public async Task<List<ComplaintResponse>> GetMyComplaintsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Complaints
+            .AsNoTracking()
+            .Where(c =>
+                c.SubmittedByUserId == userId)
+            .OrderByDescending(c =>
+                c.CreatedAt)
+            .Select(ComplaintProjections.ToResponse)
+            .ToListAsync(cancellationToken);
+    }
+    
+    
+    public async Task<List<ComplaintResponse>> GetAssignedToMeAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Complaints
+            .AsNoTracking()
+            .Where(c =>
+                c.AssignedToUserId == userId &&
+                c.Status != ComplaintStatus.Resolved &&
+                c.Status != ComplaintStatus.Rejected)
+            .OrderByDescending(c =>
+                c.Priority)
+            .ThenByDescending(c =>
+                c.UpdatedAt ?? c.CreatedAt)
+            .Select(ComplaintProjections.ToResponse)
+            .ToListAsync(cancellationToken);
+    }
+    
+    
+    public async Task<ComplaintResponse?> GetByIdAsync(
+        Guid complaintId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.Complaints
+            .AsNoTracking()
+            .Where(c => c.Id == complaintId)
+            .Select(ComplaintProjections.ToResponse)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+    
+    
+    public async Task<List<ComplaintStatusHistoryResponse>> GetStatusHistoryAsync(
+        Guid complaintId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.ComplaintStatusHistories
+            .AsNoTracking()
+            .Where(h =>
+                h.ComplaintId == complaintId)
+            .OrderByDescending(h =>
+                h.ChangedAtUtc)
+            .Select(h =>
+                new ComplaintStatusHistoryResponse
+                {
+                    Id = h.Id,
+
+                    OldStatus =
+                        h.OldStatus.ToString(),
+
+                    NewStatus =
+                        h.NewStatus.ToString(),
+
+                    ChangedByUserId =
+                        h.ChangedByUserId,
+
+                    ChangedByName =
+                        h.ChangedByUser.FirstName +
+                        " " +
+                        h.ChangedByUser.LastName,
+
+                    ChangedAtUtc =
+                        h.ChangedAtUtc,
+
+                    Note =
+                        h.Note
+                })
+            .ToListAsync(cancellationToken);
+    }
+    
+    public async Task<List<ComplaintAssignmentHistoryResponse>>
+        GetAssignmentHistoryAsync(
+            Guid complaintId,
+            CancellationToken cancellationToken = default)
+    {
+        return await context.ComplaintAssignmentHistories
+            .AsNoTracking()
+            .Where(h =>
+                h.ComplaintId == complaintId)
+            .OrderByDescending(h =>
+                h.ChangedAtUtc)
+            .Select(h =>
+                new ComplaintAssignmentHistoryResponse
+                {
+                    Id = h.Id,
+
+                    OldAssignedToUserId =
+                        h.OldAssignedToUserId,
+
+                    OldAssignedToName =
+                        h.OldAssignedToUser == null
+                            ? null
+                            : h.OldAssignedToUser.FirstName +
+                              " " +
+                              h.OldAssignedToUser.LastName,
+
+                    NewAssignedToUserId =
+                        h.NewAssignedToUserId,
+
+                    NewAssignedToName =
+                        h.NewAssignedToUser.FirstName +
+                        " " +
+                        h.NewAssignedToUser.LastName,
+
+                    ChangedByUserId =
+                        h.ChangedByUserId,
+
+                    ChangedByName =
+                        h.ChangedByUser.FirstName +
+                        " " +
+                        h.ChangedByUser.LastName,
+
+                    ChangedAtUtc =
+                        h.ChangedAtUtc,
+
+                    Note =
+                        h.Note
+                })
+            .ToListAsync(cancellationToken);
+    }
+    
 }
