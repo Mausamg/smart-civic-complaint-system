@@ -1,3 +1,4 @@
+using CivicComplaintSystem.Api.Features.Complaints.Attachments;
 using CivicComplaintSystem.Api.Features.Users;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
@@ -41,4 +42,7 @@ public sealed class Complaint
 
     public ICollection<ComplaintComment> Comments { get; set; }
         = new List<ComplaintComment>();
+
+    public ICollection<ComplaintAttachment> Attachments { get; set; }
+        = new List<ComplaintAttachment>();
 }

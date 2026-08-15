@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using CivicComplaintSystem.Api.Data;
+using CivicComplaintSystem.Api.Features.Complaints.Attachments;
 using CivicComplaintSystem.Api.Features.Complaints.Services;
 using CivicComplaintSystem.Api.Features.Notifications;
 using CivicComplaintSystem.Api.Features.Users;
@@ -19,7 +20,8 @@ public sealed class ComplaintsController(
     ComplaintQueryService complaintQueryService,
     ComplaintCommandService complaintCommandService,
     ComplaintAccessService complaintAccessService,
-    NotificationService notificationService)
+    NotificationService notificationService,
+    ComplaintAttachmentService complaintAttachmentService)
     : ControllerBase
 {
     private bool TryGetCurrentUserId(
@@ -254,8 +256,8 @@ public sealed class ComplaintsController(
         Guid id,
         AssignComplaintRequest request,
         CancellationToken cancellationToken)
-    
-    
+
+
     {
         var complaint = await context.Complaints
             .FirstOrDefaultAsync(
@@ -317,14 +319,14 @@ public sealed class ComplaintsController(
             staff.Id,
             currentUserId,
             cancellationToken);
-        
+
         await notificationService.CreateAsync(
             staff.Id,
             "New complaint assigned",
             $"You have been assigned complaint: {complaint.Title}",
             complaint.Id,
             cancellationToken);
-        
+
         await notificationService.CreateAsync(
             complaint.SubmittedByUserId,
             "Complaint assigned",
@@ -598,8 +600,8 @@ public sealed class ComplaintsController(
 
         return Ok(history);
     }
-    
-    
+
+
     [HttpPost("{id:guid}/comments")]
     [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -649,7 +651,7 @@ public sealed class ComplaintsController(
                 userId,
                 request.Message,
                 cancellationToken);
-        
+
         await notificationService.CreateAsync(
             complaint.SubmittedByUserId,
             "New complaint's update",
@@ -668,8 +670,8 @@ public sealed class ComplaintsController(
                 comment.CreatedAtUtc
             });
     }
-    
-    
+
+
     [HttpGet("{id:guid}/comments")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -719,4 +721,246 @@ public sealed class ComplaintsController(
 
         return Ok(comments);
     }
+
+    [HttpPost("{id:guid}/attachments")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadAttachment(
+        Guid id,
+        [FromForm] UploadComplaintAttachmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                c => c.Id == id,
+                cancellationToken);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        var canUpload =
+            complaint.SubmittedByUserId == userId ||
+            User.IsInRole(AppRoles.Admin) ||
+            complaint.AssignedToUserId == userId;
+
+        if (!canUpload)
+            return Forbid();
+
+        if (request.File is null ||
+            request.File.Length == 0)
+            return BadRequest(new
+            {
+                message = "File is required."
+            });
+
+        var allowedExtensions = new[]
+        {
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
+        };
+
+        var extension =
+            Path.GetExtension(
+                    request.File.FileName)
+                .ToLowerInvariant();
+
+        if (!allowedExtensions.Contains(extension))
+            return BadRequest(new
+            {
+                message =
+                    "Only JPEG, PNG and WebP images are allowed."
+            });
+
+        const long maxFileSize =
+            5 * 1024 * 1024;
+
+        if (request.File.Length > maxFileSize)
+            return BadRequest(new
+            {
+                message =
+                    "Image size cannot exceed 5 MB."
+            });
+
+
+        var result =
+            await complaintAttachmentService.UploadAsync(
+                id,
+                userId,
+                request.File,
+                cancellationToken);
+
+        if (result.Attachment is null)
+        {
+            return BadRequest(new
+            {
+                message = result.Error
+            });
+        }
+
+        var attachment =
+            result.Attachment;
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            new ComplaintAttachmentResponse
+            {
+                Id = attachment.Id,
+                ComplaintId = attachment.ComplaintId,
+                FileName = attachment.FileName,
+                ContentType = attachment.ContentType,
+                FileSize = attachment.FileSize,
+                CreatedAtUtc = attachment.CreatedAtUtc
+            });
+    }
+    
+    
+    [HttpGet("{id:guid}/attachments")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<ComplaintAttachmentResponse>>> GetAttachments(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.SubmittedByUserId,
+                c.AssignedToUserId
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        var canView =
+            complaintAccessService.CanViewComplaint(
+                userId,
+                User.IsInRole(AppRoles.Admin),
+                User.IsInRole(AppRoles.Staff),
+                complaint.SubmittedByUserId,
+                complaint.AssignedToUserId);
+
+        if (!canView)
+            return Forbid();
+
+        var attachments =
+            await complaintAttachmentService.GetByComplaintIdAsync(
+                id,
+                cancellationToken);
+
+        return Ok(attachments);
+    }
+    
+    
+    [HttpGet("{id:guid}/attachments/{attachmentId:guid}")]
+[ProducesResponseType(StatusCodes.Status200OK)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
+[ProducesResponseType(StatusCodes.Status404NotFound)]
+public async Task<IActionResult> GetAttachmentFile(
+    Guid id,
+    Guid attachmentId,
+    CancellationToken cancellationToken)
+{
+    if (!TryGetCurrentUserId(out var userId))
+        return Unauthorized(new
+        {
+            message = "Invalid user identity."
+        });
+
+    var complaint = await context.Complaints
+        .AsNoTracking()
+        .Where(c => c.Id == id)
+        .Select(c => new
+        {
+            c.SubmittedByUserId,
+            c.AssignedToUserId
+        })
+        .FirstOrDefaultAsync(cancellationToken);
+
+    if (complaint is null)
+        return NotFound(new
+        {
+            message = "Complaint not found."
+        });
+
+    var canView =
+        complaintAccessService.CanViewComplaint(
+            userId,
+            User.IsInRole(AppRoles.Admin),
+            User.IsInRole(AppRoles.Staff),
+            complaint.SubmittedByUserId,
+            complaint.AssignedToUserId);
+
+    if (!canView)
+        return Forbid();
+
+    var attachment =
+        await complaintAttachmentService.GetByIdAsync(
+            id,
+            attachmentId,
+            cancellationToken);
+
+    if (attachment is null)
+        return NotFound(new
+        {
+            message = "Attachment not found."
+        });
+
+    var filePath = Path.Combine(
+        "wwwroot",
+        "uploads",
+        "complaints",
+        attachment.StoredFileName);
+
+    if (!System.IO.File.Exists(filePath))
+        return NotFound(new
+        {
+            message = "Attachment file not found."
+        });
+
+    var contentType =
+        Path.GetExtension(attachment.StoredFileName)
+            .ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream"
+        };
+
+    return PhysicalFile(
+        Path.GetFullPath(filePath),
+        contentType,
+        attachment.FileName);
+}
 }
