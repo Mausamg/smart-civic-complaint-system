@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
 using CivicComplaintSystem.Api.Features.Complaints.Services;
+using CivicComplaintSystem.Api.Features.Notifications;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +27,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddScoped<ComplaintQueryService>();
 builder.Services.AddScoped<ComplaintCommandService>();
 builder.Services.AddScoped<ComplaintAccessService>();
+builder.Services.AddScoped<NotificationService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {

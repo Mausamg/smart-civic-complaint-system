@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using CivicComplaintSystem.Api.Data;
 using CivicComplaintSystem.Api.Features.Complaints.Services;
+using CivicComplaintSystem.Api.Features.Notifications;
 using CivicComplaintSystem.Api.Features.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -17,7 +18,8 @@ public sealed class ComplaintsController(
     UserManager<ApplicationUser> userManager,
     ComplaintQueryService complaintQueryService,
     ComplaintCommandService complaintCommandService,
-    ComplaintAccessService complaintAccessService)
+    ComplaintAccessService complaintAccessService,
+    NotificationService notificationService)
     : ControllerBase
 {
     private bool TryGetCurrentUserId(
@@ -252,6 +254,8 @@ public sealed class ComplaintsController(
         Guid id,
         AssignComplaintRequest request,
         CancellationToken cancellationToken)
+    
+    
     {
         var complaint = await context.Complaints
             .FirstOrDefaultAsync(
@@ -312,6 +316,20 @@ public sealed class ComplaintsController(
             complaint,
             staff.Id,
             currentUserId,
+            cancellationToken);
+        
+        await notificationService.CreateAsync(
+            staff.Id,
+            "New complaint assigned",
+            $"You have been assigned complaint: {complaint.Title}",
+            complaint.Id,
+            cancellationToken);
+        
+        await notificationService.CreateAsync(
+            complaint.SubmittedByUserId,
+            "Complaint assigned",
+            $"Your complaint \"{complaint.Title}\" has been assigned to a staff member.",
+            complaint.Id,
             cancellationToken);
 
         return Ok(new

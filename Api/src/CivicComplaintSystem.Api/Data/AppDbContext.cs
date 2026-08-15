@@ -1,4 +1,5 @@
 using CivicComplaintSystem.Api.Features.Complaints;
+using CivicComplaintSystem.Api.Features.Notifications;
 using CivicComplaintSystem.Api.Features.Users;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -26,6 +27,11 @@ public class AppDbContext
 
     public DbSet<ComplaintComment> ComplaintComments =>
         Set<ComplaintComment>();
+    
+    public DbSet<Notification> Notifications =>
+        Set<Notification>();
+    
+    
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -78,5 +84,13 @@ public class AppDbContext
             .WithMany()
             .HasForeignKey(c => c.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.Entity<Notification>()
+            .HasOne(n => n.User)
+            .WithMany()
+            .HasForeignKey(n => n.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
+    
+    
 }
