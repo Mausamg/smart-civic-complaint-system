@@ -305,4 +305,35 @@ public sealed class ComplaintQueryService(
             .ToListAsync(cancellationToken);
     }
     
+    
+    public async Task<List<ComplaintCommentResponse>> GetCommentsAsync(
+        Guid complaintId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.ComplaintComments
+            .AsNoTracking()
+            .Where(c =>
+                c.ComplaintId == complaintId)
+            .OrderBy(c =>
+                c.CreatedAtUtc)
+            .Select(c =>
+                new ComplaintCommentResponse
+                {
+                    Id = c.Id,
+                    ComplaintId = c.ComplaintId,
+                    Message = c.Message,
+
+                    CreatedBy =
+                        new UserSummaryResponse
+                        {
+                            Id = c.CreatedByUser.Id,
+                            FirstName = c.CreatedByUser.FirstName,
+                            LastName = c.CreatedByUser.LastName,
+                            Email = c.CreatedByUser.Email
+                        },
+
+                    CreatedAtUtc = c.CreatedAtUtc
+                })
+            .ToListAsync(cancellationToken);
+    }
 }

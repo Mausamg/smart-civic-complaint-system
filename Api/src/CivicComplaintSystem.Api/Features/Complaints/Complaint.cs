@@ -12,7 +12,7 @@ public sealed class Complaint
 
     public ComplaintStatus Status { get; set; }
         = ComplaintStatus.Submitted;
-    
+
     public ComplaintPriority Priority { get; set; }
         = ComplaintPriority.Medium;
 
@@ -35,7 +35,10 @@ public sealed class Complaint
 
     public ICollection<ComplaintStatusHistory> StatusHistory { get; set; }
         = new List<ComplaintStatusHistory>();
-    
+
     public ICollection<ComplaintAssignmentHistory> AssignmentHistory { get; set; }
         = new List<ComplaintAssignmentHistory>();
+
+    public ICollection<ComplaintComment> Comments { get; set; }
+        = new List<ComplaintComment>();
 }

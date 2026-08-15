@@ -573,4 +573,118 @@ public sealed class ComplaintsController(
 
         return Ok(history);
     }
+    
+    
+    [HttpPost("{id:guid}/comments")]
+    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AddComment(
+        Guid id,
+        AddComplaintCommentRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Message))
+            return BadRequest(new
+            {
+                message = "Comment message is required."
+            });
+
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                c => c.Id == id,
+                cancellationToken);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var isAdmin =
+            User.IsInRole(AppRoles.Admin);
+
+        if (!isAdmin &&
+            complaint.AssignedToUserId != userId)
+            return Forbid();
+
+        var comment =
+            await complaintCommandService.AddCommentAsync(
+                id,
+                userId,
+                request.Message,
+                cancellationToken);
+
+        return StatusCode(
+            StatusCodes.Status201Created,
+            new
+            {
+                comment.Id,
+                comment.ComplaintId,
+                comment.Message,
+                comment.CreatedByUserId,
+                comment.CreatedAtUtc
+            });
+    }
+    
+    
+    [HttpGet("{id:guid}/comments")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<ComplaintCommentResponse>>> GetComments(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.SubmittedByUserId,
+                c.AssignedToUserId
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        var canView =
+            complaintAccessService.CanViewComplaint(
+                userId,
+                User.IsInRole(AppRoles.Admin),
+                User.IsInRole(AppRoles.Staff),
+                complaint.SubmittedByUserId,
+                complaint.AssignedToUserId);
+
+        if (!canView)
+            return Forbid();
+
+        var comments =
+            await complaintQueryService.GetCommentsAsync(
+                id,
+                cancellationToken);
+
+        return Ok(comments);
+    }
 }

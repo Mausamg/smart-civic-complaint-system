@@ -168,4 +168,27 @@ public sealed class ComplaintCommandService(
     }
     
     
+    public async Task<ComplaintComment> AddCommentAsync(
+        Guid complaintId,
+        Guid userId,
+        string message,
+        CancellationToken cancellationToken = default)
+    {
+        var comment = new ComplaintComment
+        {
+            Id = Guid.NewGuid(),
+            ComplaintId = complaintId,
+            Message = message.Trim(),
+            CreatedByUserId = userId,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        context.ComplaintComments.Add(comment);
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return comment;
+    }
+    
+    
 }
