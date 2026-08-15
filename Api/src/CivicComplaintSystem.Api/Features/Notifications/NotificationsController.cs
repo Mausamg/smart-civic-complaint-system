@@ -140,4 +140,48 @@ public sealed class NotificationsController(
             unreadCount = count
         });
     }
+    
+    
+    [HttpPatch("read-all")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> MarkAllAsRead(
+        CancellationToken cancellationToken)
+    {
+        var userIdValue =
+            User.FindFirstValue(
+                ClaimTypes.NameIdentifier);
+
+        if (!Guid.TryParse(
+                userIdValue,
+                out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+        }
+
+        var notifications =
+            await context.Notifications
+                .Where(n =>
+                    n.UserId == userId &&
+                    !n.IsRead)
+                .ToListAsync(
+                    cancellationToken);
+
+        foreach (var notification in notifications)
+        {
+            notification.IsRead = true;
+        }
+
+        await context.SaveChangesAsync(
+            cancellationToken);
+
+        return Ok(new
+        {
+            message = "All notifications marked as read.",
+            updatedCount = notifications.Count
+        });
+    }
 }
