@@ -473,6 +473,13 @@ public sealed class ComplaintsController(
             currentUserId,
             cancellationToken);
 
+        await notificationService.CreateAsync(
+            complaint.SubmittedByUserId,
+            "Complaint status updated",
+            $"Your complaint \"{complaint.Title}\" status changed to {complaint.Status}.",
+            complaint.Id,
+            cancellationToken);
+
         return Ok(new
         {
             complaint.Id,
@@ -642,6 +649,13 @@ public sealed class ComplaintsController(
                 userId,
                 request.Message,
                 cancellationToken);
+        
+        await notificationService.CreateAsync(
+            complaint.SubmittedByUserId,
+            "New complaint's update",
+            $"A new update was added to your complaint \"{complaint.Title}\".",
+            complaint.Id,
+            cancellationToken);
 
         return StatusCode(
             StatusCodes.Status201Created,
