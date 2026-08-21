@@ -3,6 +3,7 @@ using System;
 using CivicComplaintSystem.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CivicComplaintSystem.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260815163442_AddNotifications")]
+    partial class AddNotifications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,45 +24,6 @@ namespace CivicComplaintSystem.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Attachments.ComplaintAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ComplaintId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UploadedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComplaintId");
-
-                    b.HasIndex("UploadedByUserId");
-
-                    b.ToTable("ComplaintAttachments");
-                });
 
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Complaint", b =>
                 {
@@ -450,25 +414,6 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Attachments.ComplaintAttachment", b =>
-                {
-                    b.HasOne("CivicComplaintSystem.Api.Features.Complaints.Complaint", "Complaint")
-                        .WithMany("Attachments")
-                        .HasForeignKey("ComplaintId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Complaint");
-
-                    b.Navigation("UploadedByUser");
-                });
-
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Complaint", b =>
                 {
                     b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "AssignedToUser")
@@ -623,8 +568,6 @@ namespace CivicComplaintSystem.Api.Migrations
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Complaint", b =>
                 {
                     b.Navigation("AssignmentHistory");
-
-                    b.Navigation("Attachments");
 
                     b.Navigation("Comments");
 

@@ -3,6 +3,7 @@ using System;
 using CivicComplaintSystem.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CivicComplaintSystem.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811154353_AddComplaintAssignmentHistory")]
+    partial class AddComplaintAssignmentHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,45 +24,6 @@ namespace CivicComplaintSystem.Api.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Attachments.ComplaintAttachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ComplaintId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("StoredFileName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UploadedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComplaintId");
-
-                    b.HasIndex("UploadedByUserId");
-
-                    b.ToTable("ComplaintAttachments");
-                });
 
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Complaint", b =>
                 {
@@ -147,34 +111,6 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.ToTable("ComplaintAssignmentHistories");
                 });
 
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.ComplaintComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ComplaintId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("CreatedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ComplaintId");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.ToTable("ComplaintComments");
-                });
-
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.ComplaintStatusHistory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -206,39 +142,6 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.HasIndex("ComplaintId");
 
                     b.ToTable("ComplaintStatusHistories");
-                });
-
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Notifications.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ComplaintId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Users.ApplicationUser", b =>
@@ -450,25 +353,6 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Attachments.ComplaintAttachment", b =>
-                {
-                    b.HasOne("CivicComplaintSystem.Api.Features.Complaints.Complaint", "Complaint")
-                        .WithMany("Attachments")
-                        .HasForeignKey("ComplaintId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Complaint");
-
-                    b.Navigation("UploadedByUser");
-                });
-
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Complaint", b =>
                 {
                     b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "AssignedToUser")
@@ -520,25 +404,6 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.Navigation("OldAssignedToUser");
                 });
 
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.ComplaintComment", b =>
-                {
-                    b.HasOne("CivicComplaintSystem.Api.Features.Complaints.Complaint", "Complaint")
-                        .WithMany("Comments")
-                        .HasForeignKey("ComplaintId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Complaint");
-
-                    b.Navigation("CreatedByUser");
-                });
-
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.ComplaintStatusHistory", b =>
                 {
                     b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "ChangedByUser")
@@ -556,17 +421,6 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.Navigation("ChangedByUser");
 
                     b.Navigation("Complaint");
-                });
-
-            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Notifications.Notification", b =>
-                {
-                    b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -623,10 +477,6 @@ namespace CivicComplaintSystem.Api.Migrations
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Complaints.Complaint", b =>
                 {
                     b.Navigation("AssignmentHistory");
-
-                    b.Navigation("Attachments");
-
-                    b.Navigation("Comments");
 
                     b.Navigation("StatusHistory");
                 });
