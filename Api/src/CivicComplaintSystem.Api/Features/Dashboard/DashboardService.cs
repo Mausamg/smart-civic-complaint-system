@@ -111,4 +111,36 @@ public sealed class DashboardService(
                 item => item.Count)
             .ToListAsync(cancellationToken);
     }
+    
+    public async Task<List<DashboardPriorityResponse>> GetPriorityBreakdownAsync(
+        Guid userId,
+        bool isAdmin,
+        CancellationToken cancellationToken)
+    {
+        var query = context.Complaints
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!isAdmin)
+        {
+            query = query.Where(
+                complaint =>
+                    complaint.AssignedToUserId == userId);
+        }
+
+        return await query
+            .GroupBy(
+                complaint =>
+                    complaint.Priority)
+            .Select(group =>
+                new DashboardPriorityResponse
+                {
+                    Priority = group.Key.ToString(),
+                    Count = group.Count()
+                })
+            .OrderByDescending(
+                item => item.Count)
+            .ToListAsync(cancellationToken);
+    }
+    
 }

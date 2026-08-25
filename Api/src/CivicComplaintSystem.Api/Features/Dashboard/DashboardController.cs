@@ -81,4 +81,34 @@ public sealed class DashboardController(
 
         return Ok(breakdown);
     }
+    
+    
+    [HttpGet("priority-breakdown")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<List<DashboardPriorityResponse>>>
+        GetPriorityBreakdown(
+            CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(
+                out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+        }
+
+        var isAdmin =
+            User.IsInRole(AppRoles.Admin);
+
+        var breakdown =
+            await dashboardService.GetPriorityBreakdownAsync(
+                userId,
+                isAdmin,
+                cancellationToken);
+
+        return Ok(breakdown);
+    }
 }
