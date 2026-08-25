@@ -77,5 +77,38 @@ public sealed class DashboardService(
             .FirstOrDefaultAsync(cancellationToken);
 
         return stats ?? new DashboardStatsResponse();
+        
+    }
+    
+    
+    public async Task<List<DashboardCategoryResponse>> GetCategoryBreakdownAsync(
+        Guid userId,
+        bool isAdmin,
+        CancellationToken cancellationToken)
+    {
+        var query = context.Complaints
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!isAdmin)
+        {
+            query = query.Where(
+                complaint =>
+                    complaint.AssignedToUserId == userId);
+        }
+
+        return await query
+            .GroupBy(
+                complaint =>
+                    complaint.Category)
+            .Select(group =>
+                new DashboardCategoryResponse
+                {
+                    Category = group.Key,
+                    Count = group.Count()
+                })
+            .OrderByDescending(
+                item => item.Count)
+            .ToListAsync(cancellationToken);
     }
 }
