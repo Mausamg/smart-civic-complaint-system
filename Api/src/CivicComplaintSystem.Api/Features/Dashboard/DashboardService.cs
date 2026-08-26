@@ -257,4 +257,70 @@ public sealed class DashboardService(
 
         return result;
     }
+    
+    
+    public async Task<List<DashboardWeeklyTrendResponse>>
+        GetWeeklyTrendAsync(
+            Guid userId,
+            bool isAdmin,
+            CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        var daysSinceMonday =
+            ((int)today.DayOfWeek + 6) % 7;
+
+        var currentWeekStart =
+            today.AddDays(-daysSinceMonday);
+
+        var startDate =
+            currentWeekStart.AddDays(-35);
+
+        var query = context.Complaints
+            .AsNoTracking()
+            .Where(
+                complaint =>
+                    complaint.CreatedAt >= startDate);
+
+        if (!isAdmin)
+        {
+            query = query.Where(
+                complaint =>
+                    complaint.AssignedToUserId == userId);
+        }
+
+        var complaintDates =
+            await query
+                .Select(
+                    complaint =>
+                        complaint.CreatedAt)
+                .ToListAsync(cancellationToken);
+
+        var result =
+            new List<DashboardWeeklyTrendResponse>();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var weekStart =
+                startDate.AddDays(i * 7);
+
+            var weekEnd =
+                weekStart.AddDays(7);
+
+            var count =
+                complaintDates.Count(
+                    createdAt =>
+                        createdAt >= weekStart &&
+                        createdAt < weekEnd);
+
+            result.Add(
+                new DashboardWeeklyTrendResponse
+                {
+                    WeekStart = weekStart,
+                    Count = count
+                });
+        }
+
+        return result;
+    }
 }
