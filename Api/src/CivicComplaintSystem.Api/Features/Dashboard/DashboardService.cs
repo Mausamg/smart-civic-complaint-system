@@ -143,4 +143,41 @@ public sealed class DashboardService(
             .ToListAsync(cancellationToken);
     }
     
+    public async Task<List<DashboardRecentComplaintResponse>>
+        GetRecentComplaintsAsync(
+            Guid userId,
+            bool isAdmin,
+            CancellationToken cancellationToken)
+    {
+        var query = context.Complaints
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!isAdmin)
+        {
+            query = query.Where(
+                complaint =>
+                    complaint.AssignedToUserId == userId);
+        }
+
+        return await query
+            .OrderByDescending(
+                complaint =>
+                    complaint.CreatedAt)
+            .Take(5)
+            .Select(
+                complaint =>
+                    new DashboardRecentComplaintResponse
+                    {
+                        Id = complaint.Id,
+                        Title = complaint.Title,
+                        Category = complaint.Category,
+                        Location = complaint.Location,
+                        Status = complaint.Status.ToString(),
+                        Priority = complaint.Priority.ToString(),
+                        CreatedAt = complaint.CreatedAt
+                    })
+            .ToListAsync(cancellationToken);
+    }
+    
 }
