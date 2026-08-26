@@ -180,4 +180,81 @@ public sealed class DashboardService(
             .ToListAsync(cancellationToken);
     }
     
+    
+    public async Task<List<DashboardMonthlyTrendResponse>>
+        GetMonthlyTrendAsync(
+            Guid userId,
+            bool isAdmin,
+            CancellationToken cancellationToken)
+    {
+        var currentMonth =
+            new DateTime(
+                DateTime.UtcNow.Year,
+                DateTime.UtcNow.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var startDate =
+            currentMonth.AddMonths(-5);
+
+        var query = context.Complaints
+            .AsNoTracking()
+            .Where(
+                complaint =>
+                    complaint.CreatedAt >= startDate);
+
+        if (!isAdmin)
+        {
+            query = query.Where(
+                complaint =>
+                    complaint.AssignedToUserId == userId);
+        }
+
+        var groupedData =
+            await query
+                .GroupBy(
+                    complaint =>
+                        new
+                        {
+                            complaint.CreatedAt.Year,
+                            complaint.CreatedAt.Month
+                        })
+                .Select(
+                    group =>
+                        new
+                        {
+                            group.Key.Year,
+                            group.Key.Month,
+                            Count = group.Count()
+                        })
+                .ToListAsync(cancellationToken);
+
+        var result =
+            new List<DashboardMonthlyTrendResponse>();
+
+        for (var i = 0; i < 6; i++)
+        {
+            var month =
+                startDate.AddMonths(i);
+
+            var data =
+                groupedData.FirstOrDefault(
+                    item =>
+                        item.Year == month.Year &&
+                        item.Month == month.Month);
+
+            result.Add(
+                new DashboardMonthlyTrendResponse
+                {
+                    Year = month.Year,
+                    Month = month.Month,
+                    Count = data?.Count ?? 0
+                });
+        }
+
+        return result;
+    }
 }
