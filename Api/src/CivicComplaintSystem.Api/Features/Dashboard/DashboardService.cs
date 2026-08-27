@@ -323,4 +323,64 @@ public sealed class DashboardService(
 
         return result;
     }
+    
+    
+    public async Task<DashboardResolutionMetricsResponse>
+        GetResolutionMetricsAsync(
+            CancellationToken cancellationToken)
+    {
+        var totalComplaints =
+            await context.Complaints
+                .AsNoTracking()
+                .CountAsync(cancellationToken);
+
+        var resolvedComplaints =
+            await context.Complaints
+                .AsNoTracking()
+                .CountAsync(
+                    complaint =>
+                        complaint.Status == ComplaintStatus.Resolved,
+                    cancellationToken);
+
+        var resolvedComplaintTimes =
+            await context
+                .Set<ComplaintStatusHistory>()
+                .AsNoTracking()
+                .Where(
+                    history =>
+                        history.NewStatus == ComplaintStatus.Resolved)
+                .Select(
+                    history => new
+                    {
+                        history.Complaint.CreatedAt,
+                        history.ChangedAtUtc
+                    })
+                .ToListAsync(cancellationToken);
+
+        var resolutionRate =
+            totalComplaints == 0
+                ? 0
+                : (double)resolvedComplaints /
+                totalComplaints * 100;
+
+        var averageResolutionTimeHours =
+            resolvedComplaintTimes.Count == 0
+                ? 0
+                : resolvedComplaintTimes.Average(
+                    item =>
+                        (item.ChangedAtUtc - item.CreatedAt)
+                        .TotalHours);
+
+        return new DashboardResolutionMetricsResponse
+        {
+            TotalComplaints = totalComplaints,
+            ResolvedComplaints = resolvedComplaints,
+            ResolutionRate =
+                Math.Round(resolutionRate, 2),
+            AverageResolutionTimeHours =
+                Math.Round(
+                    averageResolutionTimeHours,
+                    2)
+        };
+    }
 }
