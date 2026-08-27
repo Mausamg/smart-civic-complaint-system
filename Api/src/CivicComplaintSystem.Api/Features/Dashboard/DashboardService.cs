@@ -143,6 +143,40 @@ public sealed class DashboardService(
             .ToListAsync(cancellationToken);
     }
     
+    public async Task<List<DashboardStatusResponse>>
+        GetStatusBreakdownAsync(
+            Guid userId,
+            bool isAdmin,
+            CancellationToken cancellationToken)
+    {
+        var query = context.Complaints
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!isAdmin)
+        {
+            query = query.Where(
+                complaint =>
+                    complaint.AssignedToUserId == userId);
+        }
+
+        return await query
+            .GroupBy(
+                complaint =>
+                    complaint.Status)
+            .Select(
+                group =>
+                    new DashboardStatusResponse
+                    {
+                        Status = group.Key.ToString(),
+                        Count = group.Count()
+                    })
+            .OrderByDescending(
+                item => item.Count)
+            .ToListAsync(cancellationToken);
+    }
+    
+    
     public async Task<List<DashboardRecentComplaintResponse>>
         GetRecentComplaintsAsync(
             Guid userId,
