@@ -299,6 +299,13 @@ public sealed class ComplaintsController(
                 message =
                     "The selected user does not have the Staff role."
             });
+        
+        if (!staff.IsActive)
+            return BadRequest(new
+            {
+                message =
+                    "The selected staff member is inactive."
+            });
 
         if (!TryGetCurrentUserId(
                 out var currentUserId))
