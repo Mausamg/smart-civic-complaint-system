@@ -7,6 +7,7 @@ using CivicComplaintSystem.Api.Features.Complaints.Services;
 using CivicComplaintSystem.Api.Features.Dashboard;
 using CivicComplaintSystem.Api.Features.Notifications;
 using CivicComplaintSystem.Api.Features.Users;
+using CivicComplaintSystem.Api.Features.Users.Staff;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,7 @@ builder.Services.AddScoped<ComplaintAccessService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ComplaintAttachmentService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<StaffService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
