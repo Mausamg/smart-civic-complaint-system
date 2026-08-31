@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -76,6 +77,44 @@ builder.Services
                         Encoding.UTF8.GetBytes(jwtKey)),
 
                 ValidateLifetime = true
+            };
+
+        options.Events =
+            new JwtBearerEvents
+            {
+                OnTokenValidated =
+                    async context =>
+                    {
+                        var userId =
+                            context.Principal?
+                                .FindFirstValue(
+                                    ClaimTypes.NameIdentifier);
+
+                        if (string.IsNullOrWhiteSpace(userId))
+                        {
+                            context.Fail(
+                                "Invalid user identity.");
+
+                            return;
+                        }
+
+                        var userManager =
+                            context.HttpContext
+                                .RequestServices
+                                .GetRequiredService<
+                                    UserManager<ApplicationUser>>();
+
+                        var user =
+                            await userManager.FindByIdAsync(
+                                userId);
+
+                        if (user is null ||
+                            !user.IsActive)
+                        {
+                            context.Fail(
+                                "User account is invalid or inactive.");
+                        }
+                    }
             };
     });
 

@@ -87,6 +87,7 @@ public sealed class AuthController(
             });
     }
 
+
     [HttpPost("login")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -106,14 +107,6 @@ public sealed class AuthController(
             });
         }
 
-        if (!user.IsActive)
-        {
-            return Unauthorized(new
-            {
-                message = "This account is inactive."
-            });
-        }
-
         var passwordIsValid =
             await userManager.CheckPasswordAsync(
                 user,
@@ -124,6 +117,14 @@ public sealed class AuthController(
             return Unauthorized(new
             {
                 message = "Invalid email or password."
+            });
+        }
+
+        if (!user.IsActive)
+        {
+            return Unauthorized(new
+            {
+                message = "This account is inactive."
             });
         }
 
@@ -148,6 +149,7 @@ public sealed class AuthController(
             }
         });
     }
+
 
     [Authorize]
     [HttpGet("me")]
