@@ -106,9 +106,6 @@ app.MapControllers();
 
 app.UseExceptionHandler();
 
-using (var scope = app.Services.CreateScope())
-{
-    await IdentitySeeder.SeedIdentity(scope.ServiceProvider);
-}
 
 app.Run();
+
