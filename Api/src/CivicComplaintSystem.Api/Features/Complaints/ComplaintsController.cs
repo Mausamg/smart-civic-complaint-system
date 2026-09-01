@@ -271,11 +271,12 @@ public sealed class ComplaintsController(
             });
 
         if (complaint.Status != ComplaintStatus.Submitted &&
-            complaint.Status != ComplaintStatus.UnderReview)
+            complaint.Status != ComplaintStatus.UnderReview &&
+            complaint.Status != ComplaintStatus.InProgress)
             return BadRequest(new
             {
                 message =
-                    "Only submitted or under review complaints can be assigned."
+                    "Resolved or rejected complaints cannot be assigned."
             });
 
         var staff =
