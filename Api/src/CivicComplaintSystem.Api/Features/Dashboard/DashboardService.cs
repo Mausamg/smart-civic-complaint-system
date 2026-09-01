@@ -17,11 +17,8 @@ public sealed class DashboardService(
             .AsQueryable();
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         var stats = await query
             .GroupBy(_ => 1)
@@ -32,55 +29,47 @@ public sealed class DashboardService(
                         group.Count(),
 
                     Submitted =
-                        group.Count(
-                            complaint =>
-                                complaint.Status ==
-                                ComplaintStatus.Submitted),
+                        group.Count(complaint =>
+                            complaint.Status ==
+                            ComplaintStatus.Submitted),
 
                     UnderReview =
-                        group.Count(
-                            complaint =>
-                                complaint.Status ==
-                                ComplaintStatus.UnderReview),
+                        group.Count(complaint =>
+                            complaint.Status ==
+                            ComplaintStatus.UnderReview),
 
                     InProgress =
-                        group.Count(
-                            complaint =>
-                                complaint.Status ==
-                                ComplaintStatus.InProgress),
+                        group.Count(complaint =>
+                            complaint.Status ==
+                            ComplaintStatus.InProgress),
 
                     Resolved =
-                        group.Count(
-                            complaint =>
-                                complaint.Status ==
-                                ComplaintStatus.Resolved),
+                        group.Count(complaint =>
+                            complaint.Status ==
+                            ComplaintStatus.Resolved),
 
                     Rejected =
-                        group.Count(
-                            complaint =>
-                                complaint.Status ==
-                                ComplaintStatus.Rejected),
+                        group.Count(complaint =>
+                            complaint.Status ==
+                            ComplaintStatus.Rejected),
 
                     HighPriority =
-                        group.Count(
-                            complaint =>
-                                complaint.Priority ==
-                                ComplaintPriority.High),
+                        group.Count(complaint =>
+                            complaint.Priority ==
+                            ComplaintPriority.High),
 
                     Unassigned =
                         isAdmin
-                            ? group.Count(
-                                complaint =>
-                                    complaint.AssignedToUserId == null)
+                            ? group.Count(complaint =>
+                                complaint.AssignedToUserId == null)
                             : 0
                 })
             .FirstOrDefaultAsync(cancellationToken);
 
         return stats ?? new DashboardStatsResponse();
-        
     }
-    
-    
+
+
     public async Task<List<DashboardCategoryResponse>> GetCategoryBreakdownAsync(
         Guid userId,
         bool isAdmin,
@@ -91,27 +80,22 @@ public sealed class DashboardService(
             .AsQueryable();
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         return await query
-            .GroupBy(
-                complaint =>
-                    complaint.Category)
+            .GroupBy(complaint =>
+                complaint.Category)
             .Select(group =>
                 new DashboardCategoryResponse
                 {
                     Category = group.Key,
                     Count = group.Count()
                 })
-            .OrderByDescending(
-                item => item.Count)
+            .OrderByDescending(item => item.Count)
             .ToListAsync(cancellationToken);
     }
-    
+
     public async Task<List<DashboardPriorityResponse>> GetPriorityBreakdownAsync(
         Guid userId,
         bool isAdmin,
@@ -122,27 +106,22 @@ public sealed class DashboardService(
             .AsQueryable();
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         return await query
-            .GroupBy(
-                complaint =>
-                    complaint.Priority)
+            .GroupBy(complaint =>
+                complaint.Priority)
             .Select(group =>
                 new DashboardPriorityResponse
                 {
                     Priority = group.Key.ToString(),
                     Count = group.Count()
                 })
-            .OrderByDescending(
-                item => item.Count)
+            .OrderByDescending(item => item.Count)
             .ToListAsync(cancellationToken);
     }
-    
+
     public async Task<List<DashboardStatusResponse>>
         GetStatusBreakdownAsync(
             Guid userId,
@@ -154,29 +133,23 @@ public sealed class DashboardService(
             .AsQueryable();
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         return await query
-            .GroupBy(
-                complaint =>
-                    complaint.Status)
-            .Select(
-                group =>
-                    new DashboardStatusResponse
-                    {
-                        Status = group.Key.ToString(),
-                        Count = group.Count()
-                    })
-            .OrderByDescending(
-                item => item.Count)
+            .GroupBy(complaint =>
+                complaint.Status)
+            .Select(group =>
+                new DashboardStatusResponse
+                {
+                    Status = group.Key.ToString(),
+                    Count = group.Count()
+                })
+            .OrderByDescending(item => item.Count)
             .ToListAsync(cancellationToken);
     }
-    
-    
+
+
     public async Task<List<DashboardRecentComplaintResponse>>
         GetRecentComplaintsAsync(
             Guid userId,
@@ -188,33 +161,28 @@ public sealed class DashboardService(
             .AsQueryable();
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         return await query
-            .OrderByDescending(
-                complaint =>
-                    complaint.CreatedAt)
+            .OrderByDescending(complaint =>
+                complaint.CreatedAt)
             .Take(5)
-            .Select(
-                complaint =>
-                    new DashboardRecentComplaintResponse
-                    {
-                        Id = complaint.Id,
-                        Title = complaint.Title,
-                        Category = complaint.Category,
-                        Location = complaint.Location,
-                        Status = complaint.Status.ToString(),
-                        Priority = complaint.Priority.ToString(),
-                        CreatedAt = complaint.CreatedAt
-                    })
+            .Select(complaint =>
+                new DashboardRecentComplaintResponse
+                {
+                    Id = complaint.Id,
+                    Title = complaint.Title,
+                    Category = complaint.Category,
+                    Location = complaint.Location,
+                    Status = complaint.Status.ToString(),
+                    Priority = complaint.Priority.ToString(),
+                    CreatedAt = complaint.CreatedAt
+                })
             .ToListAsync(cancellationToken);
     }
-    
-    
+
+
     public async Task<List<DashboardMonthlyTrendResponse>>
         GetMonthlyTrendAsync(
             Guid userId,
@@ -236,34 +204,28 @@ public sealed class DashboardService(
 
         var query = context.Complaints
             .AsNoTracking()
-            .Where(
-                complaint =>
-                    complaint.CreatedAt >= startDate);
+            .Where(complaint =>
+                complaint.CreatedAt >= startDate);
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         var groupedData =
             await query
-                .GroupBy(
-                    complaint =>
-                        new
-                        {
-                            complaint.CreatedAt.Year,
-                            complaint.CreatedAt.Month
-                        })
-                .Select(
-                    group =>
-                        new
-                        {
-                            group.Key.Year,
-                            group.Key.Month,
-                            Count = group.Count()
-                        })
+                .GroupBy(complaint =>
+                    new
+                    {
+                        complaint.CreatedAt.Year,
+                        complaint.CreatedAt.Month
+                    })
+                .Select(group =>
+                    new
+                    {
+                        group.Key.Year,
+                        group.Key.Month,
+                        Count = group.Count()
+                    })
                 .ToListAsync(cancellationToken);
 
         var result =
@@ -275,10 +237,9 @@ public sealed class DashboardService(
                 startDate.AddMonths(i);
 
             var data =
-                groupedData.FirstOrDefault(
-                    item =>
-                        item.Year == month.Year &&
-                        item.Month == month.Month);
+                groupedData.FirstOrDefault(item =>
+                    item.Year == month.Year &&
+                    item.Month == month.Month);
 
             result.Add(
                 new DashboardMonthlyTrendResponse
@@ -291,8 +252,8 @@ public sealed class DashboardService(
 
         return result;
     }
-    
-    
+
+
     public async Task<List<DashboardWeeklyTrendResponse>>
         GetWeeklyTrendAsync(
             Guid userId,
@@ -312,22 +273,17 @@ public sealed class DashboardService(
 
         var query = context.Complaints
             .AsNoTracking()
-            .Where(
-                complaint =>
-                    complaint.CreatedAt >= startDate);
+            .Where(complaint =>
+                complaint.CreatedAt >= startDate);
 
         if (!isAdmin)
-        {
-            query = query.Where(
-                complaint =>
-                    complaint.AssignedToUserId == userId);
-        }
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
 
         var complaintDates =
             await query
-                .Select(
-                    complaint =>
-                        complaint.CreatedAt)
+                .Select(complaint =>
+                    complaint.CreatedAt)
                 .ToListAsync(cancellationToken);
 
         var result =
@@ -342,10 +298,9 @@ public sealed class DashboardService(
                 weekStart.AddDays(7);
 
             var count =
-                complaintDates.Count(
-                    createdAt =>
-                        createdAt >= weekStart &&
-                        createdAt < weekEnd);
+                complaintDates.Count(createdAt =>
+                    createdAt >= weekStart &&
+                    createdAt < weekEnd);
 
             result.Add(
                 new DashboardWeeklyTrendResponse
@@ -357,8 +312,8 @@ public sealed class DashboardService(
 
         return result;
     }
-    
-    
+
+
     public async Task<DashboardResolutionMetricsResponse>
         GetResolutionMetricsAsync(
             CancellationToken cancellationToken)
@@ -366,7 +321,10 @@ public sealed class DashboardService(
         var totalComplaints =
             await context.Complaints
                 .AsNoTracking()
-                .CountAsync(cancellationToken);
+                .CountAsync(
+                    complaint =>
+                        complaint.Status != ComplaintStatus.Withdrawn,
+                    cancellationToken);
 
         var resolvedComplaints =
             await context.Complaints
@@ -380,15 +338,13 @@ public sealed class DashboardService(
             await context
                 .Set<ComplaintStatusHistory>()
                 .AsNoTracking()
-                .Where(
-                    history =>
-                        history.NewStatus == ComplaintStatus.Resolved)
-                .Select(
-                    history => new
-                    {
-                        history.Complaint.CreatedAt,
-                        history.ChangedAtUtc
-                    })
+                .Where(history =>
+                    history.NewStatus == ComplaintStatus.Resolved)
+                .Select(history => new
+                {
+                    history.Complaint.CreatedAt,
+                    history.ChangedAtUtc
+                })
                 .ToListAsync(cancellationToken);
 
         var resolutionRate =
@@ -400,10 +356,9 @@ public sealed class DashboardService(
         var averageResolutionTimeHours =
             resolvedComplaintTimes.Count == 0
                 ? 0
-                : resolvedComplaintTimes.Average(
-                    item =>
-                        (item.ChangedAtUtc - item.CreatedAt)
-                        .TotalHours);
+                : resolvedComplaintTimes.Average(item =>
+                    (item.ChangedAtUtc - item.CreatedAt)
+                    .TotalHours);
 
         return new DashboardResolutionMetricsResponse
         {
