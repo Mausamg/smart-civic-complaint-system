@@ -441,6 +441,15 @@ public sealed class ComplaintsController(
 
 
     {
+        var staffUserId =
+            request.StaffUserId!.Value;
+
+        if (staffUserId == Guid.Empty)
+            return BadRequest(new
+            {
+                message = "StaffUserId must be a valid non-empty GUID."
+            });
+
         var complaint = await context.Complaints
             .FirstOrDefaultAsync(
                 c => c.Id == id,
@@ -463,7 +472,7 @@ public sealed class ComplaintsController(
 
         var staff =
             await userManager.FindByIdAsync(
-                request.StaffUserId.ToString());
+                staffUserId.ToString());
 
         if (staff is null)
             return NotFound(new
@@ -557,13 +566,8 @@ public sealed class ComplaintsController(
         UpdateComplaintPriorityRequest request,
         CancellationToken cancellationToken)
     {
-        if (!Enum.IsDefined(
-                typeof(ComplaintPriority),
-                request.Priority))
-            return BadRequest(new
-            {
-                message = "Invalid complaint priority."
-            });
+        var priority =
+            request.Priority!.Value;
 
         var complaint = await context.Complaints
             .AsNoTracking()
@@ -589,13 +593,13 @@ public sealed class ComplaintsController(
             return BadRequest(new
             {
                 message =
-                    $"Complaint priority is already {request.Priority}."
+                    $"Complaint priority is already {priority}."
             });
 
         var updatedComplaint =
             await complaintCommandService.UpdatePriorityAsync(
                 id,
-                request.Priority,
+                priority,
                 cancellationToken);
 
         return Ok(new
@@ -623,6 +627,9 @@ public sealed class ComplaintsController(
         UpdateComplaintStatusRequest request,
         CancellationToken cancellationToken)
     {
+        var newStatus =
+            request.Status!.Value;
+
         var complaint = await context.Complaints
             .FirstOrDefaultAsync(
                 c => c.Id == id,
@@ -650,18 +657,18 @@ public sealed class ComplaintsController(
 
         if (!ComplaintStatusRules.CanTransition(
                 complaint.Status,
-                request.Status))
+                newStatus))
             return BadRequest(new
             {
                 message =
                     $"Cannot change complaint status from " +
                     $"{complaint.Status} to " +
-                    $"{request.Status}."
+                    $"{newStatus}."
             });
 
         await complaintCommandService.UpdateStatusAsync(
             complaint,
-            request.Status,
+            newStatus,
             currentUserId,
             cancellationToken);
 
@@ -804,12 +811,6 @@ public sealed class ComplaintsController(
         AddComplaintCommentRequest request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Message))
-            return BadRequest(new
-            {
-                message = "Comment message is required."
-            });
-
         var complaint = await context.Complaints
             .AsNoTracking()
             .FirstOrDefaultAsync(

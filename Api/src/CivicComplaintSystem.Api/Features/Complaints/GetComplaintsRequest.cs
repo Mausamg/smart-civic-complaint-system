@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace CivicComplaintSystem.Api.Features.Complaints;
 
 public sealed class GetComplaintsRequest
@@ -23,7 +25,9 @@ public sealed class GetComplaintsRequest
     public DateTime? CreatedTo { get; init; }
     
 
+    [Range(1, int.MaxValue)]
     public int Page { get; init; } = 1;
 
+    [Range(1, 100)]
     public int PageSize { get; init; } = 10;
 }
