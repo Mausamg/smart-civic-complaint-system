@@ -78,6 +78,188 @@ public sealed class ComplaintsController(
     }
 
 
+    [HttpPatch("{id:guid}")]
+    [Authorize(Roles = AppRoles.Citizen)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateComplaint(
+        Guid id,
+        UpdateComplaintRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(
+                out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var complaint =
+            await context.Complaints
+                .FirstOrDefaultAsync(
+                    c => c.Id == id,
+                    cancellationToken);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        if (complaint.SubmittedByUserId != userId)
+            return Forbid();
+
+        if (complaint.Status != ComplaintStatus.Submitted ||
+            complaint.AssignedToUserId is not null)
+            return BadRequest(new
+            {
+                message =
+                    "Only submitted and unassigned complaints can be edited."
+            });
+
+        var hasChanges =
+            request.Title is not null ||
+            request.Description is not null ||
+            request.Category is not null ||
+            request.Location is not null;
+
+        if (!hasChanges)
+            return BadRequest(new
+            {
+                message =
+                    "At least one field must be provided."
+            });
+
+        if (request.Title is not null &&
+            string.IsNullOrWhiteSpace(request.Title))
+            return BadRequest(new
+            {
+                message = "Title cannot be empty."
+            });
+
+        if (request.Description is not null &&
+            string.IsNullOrWhiteSpace(request.Description))
+            return BadRequest(new
+            {
+                message = "Description cannot be empty."
+            });
+
+        if (request.Category is not null &&
+            string.IsNullOrWhiteSpace(request.Category))
+            return BadRequest(new
+            {
+                message = "Category cannot be empty."
+            });
+
+        if (request.Location is not null &&
+            string.IsNullOrWhiteSpace(request.Location))
+            return BadRequest(new
+            {
+                message = "Location cannot be empty."
+            });
+
+        var hasActualChanges =
+            request.Title is not null &&
+            request.Title.Trim() != complaint.Title ||
+
+            request.Description is not null &&
+            request.Description.Trim() != complaint.Description ||
+
+            request.Category is not null &&
+            request.Category.Trim() != complaint.Category ||
+
+            request.Location is not null &&
+            request.Location.Trim() != complaint.Location;
+
+        if (!hasActualChanges)
+            return BadRequest(new
+            {
+                message =
+                    "No changes detected."
+            });
+
+        await complaintCommandService.UpdateAsync(
+            complaint,
+            request,
+            cancellationToken);
+
+        return Ok(new
+        {
+            complaint.Id,
+            complaint.Title,
+            complaint.Description,
+            complaint.Category,
+            complaint.Location,
+
+            Status =
+                complaint.Status.ToString(),
+
+            complaint.UpdatedAt
+        });
+    }
+
+
+    [HttpPatch("{id:guid}/withdraw")]
+    [Authorize(Roles = AppRoles.Citizen)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> WithdrawComplaint(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(
+                out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+
+        var complaint =
+            await context.Complaints
+                .FirstOrDefaultAsync(
+                    c => c.Id == id,
+                    cancellationToken);
+
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+
+        if (complaint.SubmittedByUserId != userId)
+            return Forbid();
+
+        if (complaint.Status != ComplaintStatus.Submitted ||
+            complaint.AssignedToUserId is not null)
+            return BadRequest(new
+            {
+                message =
+                    "Only submitted and unassigned complaints can be withdrawn."
+            });
+
+        await complaintCommandService.WithdrawAsync(
+            complaint,
+            userId,
+            cancellationToken);
+
+        return Ok(new
+        {
+            complaint.Id,
+
+            Status =
+                complaint.Status.ToString(),
+
+            complaint.UpdatedAt
+        });
+    }
+
+
     [HttpGet("my")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -276,7 +458,7 @@ public sealed class ComplaintsController(
             return BadRequest(new
             {
                 message =
-                    "Resolved or rejected complaints cannot be assigned."
+                    "Only submitted, under review, or in progress complaints can be assigned."
             });
 
         var staff =
@@ -300,7 +482,7 @@ public sealed class ComplaintsController(
                 message =
                     "The selected user does not have the Staff role."
             });
-        
+
         if (!staff.IsActive)
             return BadRequest(new
             {
@@ -394,13 +576,13 @@ public sealed class ComplaintsController(
             {
                 message = "Complaint not found."
             });
-
         if (complaint.Status == ComplaintStatus.Resolved ||
-            complaint.Status == ComplaintStatus.Rejected)
+            complaint.Status == ComplaintStatus.Rejected ||
+            complaint.Status == ComplaintStatus.Withdrawn)
             return BadRequest(new
             {
                 message =
-                    "Priority cannot be changed for resolved or rejected complaints."
+                    "Priority cannot be changed for resolved, rejected, or withdrawn complaints."
             });
 
         if (complaint.Priority == request.Priority)
@@ -760,6 +942,13 @@ public sealed class ComplaintsController(
                 message = "Complaint not found."
             });
 
+        if (complaint.Status == ComplaintStatus.Withdrawn)
+            return BadRequest(new
+            {
+                message =
+                    "Attachments cannot be uploaded to a withdrawn complaint."
+            });
+
         var canUpload =
             complaint.SubmittedByUserId == userId ||
             User.IsInRole(AppRoles.Admin) ||
@@ -814,12 +1003,10 @@ public sealed class ComplaintsController(
                 cancellationToken);
 
         if (result.Attachment is null)
-        {
             return BadRequest(new
             {
                 message = result.Error
             });
-        }
 
         var attachment =
             result.Attachment;
@@ -836,8 +1023,8 @@ public sealed class ComplaintsController(
                 CreatedAtUtc = attachment.CreatedAtUtc
             });
     }
-    
-    
+
+
     [HttpGet("{id:guid}/attachments")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -887,88 +1074,88 @@ public sealed class ComplaintsController(
 
         return Ok(attachments);
     }
-    
-    
+
+
     [HttpGet("{id:guid}/attachments/{attachmentId:guid}")]
-[ProducesResponseType(StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-[ProducesResponseType(StatusCodes.Status403Forbidden)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<IActionResult> GetAttachmentFile(
-    Guid id,
-    Guid attachmentId,
-    CancellationToken cancellationToken)
-{
-    if (!TryGetCurrentUserId(out var userId))
-        return Unauthorized(new
-        {
-            message = "Invalid user identity."
-        });
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAttachmentFile(
+        Guid id,
+        Guid attachmentId,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
 
-    var complaint = await context.Complaints
-        .AsNoTracking()
-        .Where(c => c.Id == id)
-        .Select(c => new
-        {
-            c.SubmittedByUserId,
-            c.AssignedToUserId
-        })
-        .FirstOrDefaultAsync(cancellationToken);
+        var complaint = await context.Complaints
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new
+            {
+                c.SubmittedByUserId,
+                c.AssignedToUserId
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-    if (complaint is null)
-        return NotFound(new
-        {
-            message = "Complaint not found."
-        });
+        if (complaint is null)
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
 
-    var canView =
-        complaintAccessService.CanViewComplaint(
-            userId,
-            User.IsInRole(AppRoles.Admin),
-            User.IsInRole(AppRoles.Staff),
-            complaint.SubmittedByUserId,
-            complaint.AssignedToUserId);
+        var canView =
+            complaintAccessService.CanViewComplaint(
+                userId,
+                User.IsInRole(AppRoles.Admin),
+                User.IsInRole(AppRoles.Staff),
+                complaint.SubmittedByUserId,
+                complaint.AssignedToUserId);
 
-    if (!canView)
-        return Forbid();
+        if (!canView)
+            return Forbid();
 
-    var attachment =
-        await complaintAttachmentService.GetByIdAsync(
-            id,
-            attachmentId,
-            cancellationToken);
+        var attachment =
+            await complaintAttachmentService.GetByIdAsync(
+                id,
+                attachmentId,
+                cancellationToken);
 
-    if (attachment is null)
-        return NotFound(new
-        {
-            message = "Attachment not found."
-        });
+        if (attachment is null)
+            return NotFound(new
+            {
+                message = "Attachment not found."
+            });
 
-    var filePath = Path.Combine(
-        "wwwroot",
-        "uploads",
-        "complaints",
-        attachment.StoredFileName);
+        var filePath = Path.Combine(
+            "wwwroot",
+            "uploads",
+            "complaints",
+            attachment.StoredFileName);
 
-    if (!System.IO.File.Exists(filePath))
-        return NotFound(new
-        {
-            message = "Attachment file not found."
-        });
+        if (!System.IO.File.Exists(filePath))
+            return NotFound(new
+            {
+                message = "Attachment file not found."
+            });
 
-    var contentType =
-        Path.GetExtension(attachment.StoredFileName)
-            .ToLowerInvariant() switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".webp" => "image/webp",
-            _ => "application/octet-stream"
-        };
+        var contentType =
+            Path.GetExtension(attachment.StoredFileName)
+                    .ToLowerInvariant() switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    ".webp" => "image/webp",
+                    _ => "application/octet-stream"
+                };
 
-    return PhysicalFile(
-        Path.GetFullPath(filePath),
-        contentType,
-        attachment.FileName);
-}
+        return PhysicalFile(
+            Path.GetFullPath(filePath),
+            contentType,
+            attachment.FileName);
+    }
 }

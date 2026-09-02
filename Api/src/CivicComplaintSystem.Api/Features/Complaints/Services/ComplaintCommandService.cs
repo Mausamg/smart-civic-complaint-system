@@ -32,6 +32,67 @@ public sealed class ComplaintCommandService(
     }
 
 
+    public async Task UpdateAsync(
+        Complaint complaint,
+        UpdateComplaintRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request.Title is not null)
+            complaint.Title = request.Title.Trim();
+
+        if (request.Description is not null)
+            complaint.Description = request.Description.Trim();
+
+        if (request.Category is not null)
+            complaint.Category = request.Category.Trim();
+
+        if (request.Location is not null)
+            complaint.Location = request.Location.Trim();
+
+        complaint.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync(
+            cancellationToken);
+    }
+
+
+    public async Task WithdrawAsync(
+        Complaint complaint,
+        Guid changedByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var oldStatus =
+            complaint.Status;
+
+        var now =
+            DateTime.UtcNow;
+
+        complaint.Status =
+            ComplaintStatus.Withdrawn;
+
+        complaint.UpdatedAt =
+            now;
+
+        var history =
+            new ComplaintStatusHistory
+            {
+                Id = Guid.NewGuid(),
+                ComplaintId = complaint.Id,
+                OldStatus = oldStatus,
+                NewStatus = ComplaintStatus.Withdrawn,
+                ChangedByUserId = changedByUserId,
+                ChangedAtUtc = now,
+                Note = "Complaint withdrawn by citizen."
+            };
+
+        context.ComplaintStatusHistories.Add(
+            history);
+
+        await context.SaveChangesAsync(
+            cancellationToken);
+    }
+
+
     public async Task<Complaint?> UpdatePriorityAsync(
         Guid complaintId,
         ComplaintPriority priority,
@@ -166,8 +227,8 @@ public sealed class ComplaintCommandService(
         await context.SaveChangesAsync(
             cancellationToken);
     }
-    
-    
+
+
     public async Task<ComplaintComment> AddCommentAsync(
         Guid complaintId,
         Guid userId,
@@ -189,6 +250,4 @@ public sealed class ComplaintCommandService(
 
         return comment;
     }
-    
-    
 }

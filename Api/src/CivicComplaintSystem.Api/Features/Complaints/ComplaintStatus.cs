@@ -6,5 +6,6 @@ public enum ComplaintStatus
     UnderReview = 1,
     InProgress = 3,
     Resolved = 4,
-    Rejected = 5
+    Rejected = 5,
+    Withdrawn = 6
 }

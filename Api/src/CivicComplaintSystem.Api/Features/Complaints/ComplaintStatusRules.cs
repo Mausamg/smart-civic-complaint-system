@@ -27,6 +27,9 @@ public static class ComplaintStatusRules
             ComplaintStatus.Rejected =>
                 false,
 
+            ComplaintStatus.Withdrawn =>
+                false,
+
             _ => false
         };
     }
