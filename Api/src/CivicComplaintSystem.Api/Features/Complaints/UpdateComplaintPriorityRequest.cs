@@ -1,6 +1,10 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace CivicComplaintSystem.Api.Features.Complaints;
 
 public sealed class UpdateComplaintPriorityRequest
 {
-    public ComplaintPriority Priority { get; set; }
+    [Required]
+    [EnumDataType(typeof(ComplaintPriority))]
+    public ComplaintPriority? Priority { get; init; }
 }

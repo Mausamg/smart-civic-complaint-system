@@ -7,12 +7,29 @@ public sealed class ComplaintAttachmentService(
     AppDbContext context,
     IWebHostEnvironment environment)
 {
+    private const long MaxFileSizeBytes =
+        5 * 1024 * 1024;
     public async Task<AttachmentUploadResult> UploadAsync(
         Guid complaintId,
         Guid userId,
         IFormFile file,
         CancellationToken cancellationToken = default)
     {
+        if (file.Length == 0)
+        {
+            return new AttachmentUploadResult
+            {
+                Error = "File cannot be empty."
+            };
+        }
+
+        if (file.Length > MaxFileSizeBytes)
+        {
+            return new AttachmentUploadResult
+            {
+                Error = "File size cannot exceed 5 MB."
+            };
+        }
         if (!await IsValidImageAsync(
                 file,
                 cancellationToken))
