@@ -33,4 +33,12 @@ public static class ComplaintStatusRules
             _ => false
         };
     }
+    public static bool IsTerminal(
+        ComplaintStatus status)
+    {
+        return status is
+            ComplaintStatus.Resolved or
+            ComplaintStatus.Rejected or
+            ComplaintStatus.Withdrawn;
+    }
 }

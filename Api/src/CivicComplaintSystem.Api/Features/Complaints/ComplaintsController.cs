@@ -658,6 +658,13 @@ public sealed class ComplaintsController(
         if (!isAdmin &&
             complaint.AssignedToUserId != currentUserId)
             return Forbid();
+        if (newStatus == ComplaintStatus.InProgress &&
+            complaint.AssignedToUserId is null)
+            return BadRequest(new
+            {
+                message =
+                    "A complaint must be assigned before it can be moved to InProgress."
+            });
 
         if (!ComplaintStatusRules.CanTransition(
                 complaint.Status,
@@ -839,6 +846,14 @@ public sealed class ComplaintsController(
         if (!isAdmin &&
             complaint.AssignedToUserId != userId)
             return Forbid();
+        
+        if (ComplaintStatusRules.IsTerminal(
+                complaint.Status))
+            return BadRequest(new
+            {
+                message =
+                    "Comments cannot be added to a closed complaint."
+            });
 
         var comment =
             await complaintCommandService.AddCommentAsync(
@@ -947,13 +962,6 @@ public sealed class ComplaintsController(
                 message = "Complaint not found."
             });
 
-        if (complaint.Status == ComplaintStatus.Withdrawn)
-            return BadRequest(new
-            {
-                message =
-                    "Attachments cannot be uploaded to a withdrawn complaint."
-            });
-
         var canUpload =
             complaint.SubmittedByUserId == userId ||
             User.IsInRole(AppRoles.Admin) ||
@@ -961,6 +969,14 @@ public sealed class ComplaintsController(
 
         if (!canUpload)
             return Forbid();
+
+        if (ComplaintStatusRules.IsTerminal(
+                complaint.Status))
+            return BadRequest(new
+            {
+                message =
+                    "Attachments cannot be uploaded to a closed complaint."
+            });
 
         if (request.File is null ||
             request.File.Length == 0)
