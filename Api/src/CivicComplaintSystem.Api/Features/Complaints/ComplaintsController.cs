@@ -38,8 +38,10 @@ public sealed class ComplaintsController(
 
 
     [HttpPost]
+    [Authorize(Roles = AppRoles.Citizen)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create(
         CreateComplaintRequest request,
         CancellationToken cancellationToken)
@@ -261,8 +263,10 @@ public sealed class ComplaintsController(
 
 
     [HttpGet("my")]
+    [Authorize(Roles = AppRoles.Citizen)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetMyComplaints(
         CancellationToken cancellationToken)
     {
