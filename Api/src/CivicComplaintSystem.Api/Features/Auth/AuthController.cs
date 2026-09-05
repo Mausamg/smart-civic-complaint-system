@@ -90,6 +90,7 @@ public sealed class AuthController(
 
     [HttpPost("login")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(
         LoginRequest request)
@@ -153,6 +154,8 @@ public sealed class AuthController(
 
     [Authorize]
     [HttpGet("me")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public IActionResult Me()
     {
         var userId = User.FindFirstValue(

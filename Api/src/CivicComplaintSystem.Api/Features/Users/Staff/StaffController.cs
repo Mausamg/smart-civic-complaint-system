@@ -41,6 +41,8 @@ public sealed class StaffController(
         StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(
         StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(
+        StatusCodes.Status409Conflict)]
     public async Task<ActionResult<StaffResponse>>
         CreateStaff(
             CreateStaffRequest request)
@@ -51,15 +53,32 @@ public sealed class StaffController(
 
         if (!result.Succeeded)
         {
+            var errors =
+                result.Errors.ToList();
+
+            var isDuplicateAccount =
+                errors.Any(error =>
+                    error.Code is
+                        "DuplicateEmail" or
+                        "DuplicateUserName");
+
+            if (isDuplicateAccount)
+            {
+                return Conflict(new
+                {
+                    message =
+                        "A user with this email already exists."
+                });
+            }
+
             return BadRequest(new
             {
                 message =
                     "Staff account could not be created.",
 
                 errors =
-                    result.Errors
-                        .Select(error =>
-                            error.Description)
+                    errors.Select(error =>
+                        error.Description)
             });
         }
 
