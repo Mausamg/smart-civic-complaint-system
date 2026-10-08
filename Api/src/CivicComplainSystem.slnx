@@ -2,4 +2,5 @@
   <Folder Name="/src/">
     <Project Path="CivicComplaintSystem.Api/CivicComplaintSystem.Api.csproj" />
   </Folder>
+  <Project Path="../tests/CivicComplaintSystem.Tests/CivicComplaintSystem.Tests.csproj" />
 </Solution>
