@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using CivicComplaintSystem.Api.Data;
@@ -12,7 +13,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -110,10 +110,8 @@ builder.Services
 
                         if (user is null ||
                             !user.IsActive)
-                        {
                             context.Fail(
                                 "User account is invalid or inactive.");
-                        }
                     }
             };
     });
@@ -160,3 +158,6 @@ app.MapControllers();
 
 app.Run();
 
+public partial class Program
+{
+}
