@@ -1,16 +1,11 @@
-import { Bell,ChevronDown,Globe,LogIn,Menu,Moon,Sun,UserPlus,X } from 'lucide-react';
 import { useState } from 'react';
-import { Link,NavLink,useNavigate } from 'react-router-dom';
-import { Button } from '../../components/ui/Button';
-import { useApp } from '../../context/AppContext';
-import { cn } from '../../utils/format';
+import { Link, NavLink } from 'react-router-dom';
+import { ArrowUpRight, Menu, Moon, Sun, X } from 'lucide-react';
 import { Logo } from './Logo';
+import { useApp } from '../../context/AppContext';
 
-const navLinks = [
+const pages = [
   { label: 'Home', to: '/' },
-  { label: 'Report Issue', to: '/report' },
-  { label: 'Track Complaint', to: '/track' },
-  { label: 'Public Map', to: '/map' },
   { label: 'About', to: '/about' },
   { label: 'FAQ', to: '/faq' },
   { label: 'Contact', to: '/contact' },
@@ -18,136 +13,42 @@ const navLinks = [
 
 export function PublicNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
-  const { theme, toggleTheme, lang, setLang, role } = useApp();
-  const navigate = useNavigate();
+  const { theme, toggleTheme, role } = useApp();
+  const dashboardPath = role ? `/${role}/dashboard` : '/login';
 
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-200/70 bg-white/85 backdrop-blur-md dark:border-ink-800 dark:bg-ink-950/85">
-      <div className="container-page flex h-16 items-center justify-between gap-4">
-        <Link to="/" className="shrink-0" aria-label="CivicLink home">
-          <Logo />
+    <header className="cl-nav">
+      <a className="cl-skip" href="#main-content">Skip to content</a>
+      <div className="cl-nav__notice">CivicLink is a project prototype, not an official municipal service.</div>
+      <div className="cl-wrap cl-nav__row">
+        <Link to="/" className="cl-nav__brand" aria-label="CivicLink home" onClick={() => setMobileOpen(false)}>
+          <Logo size="lg" className="cl-wordmark" />
+          <span className="cl-nav__brand-tag">THE CIVIC PLATFORM</span>
         </Link>
-
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
-          {navLinks.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              className={({ isActive }) =>
-                cn(
-                  'rounded-lg px-3 py-2 text-sm font-medium transition',
-                  isActive
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300'
-                    : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900 dark:text-ink-300 dark:hover:bg-ink-800'
-                )
-              }
-            >
-              {l.label}
-            </NavLink>
+        <nav className="cl-nav__links" aria-label="Primary navigation">
+          {pages.map(({ label, to }) => (
+            <NavLink key={to} end={to === '/'} to={to} className={({ isActive }) => isActive ? 'cl-nav__link cl-nav__link--active' : 'cl-nav__link'}>{label}</NavLink>
           ))}
+          <a className="cl-nav__link" href="/#how-it-works">How it works</a>
         </nav>
-
-        <div className="flex items-center gap-2">
-          <div className="relative hidden sm:block">
-            <button
-              onClick={() => setLangOpen((o) => !o)}
-              className="flex h-9 items-center gap-1 rounded-lg px-2.5 text-sm text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800"
-              aria-haspopup="true"
-              aria-expanded={langOpen}
-            >
-              <Globe className="h-4 w-4" />
-              {lang === 'en' ? 'EN' : 'ने'}
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            {langOpen && (
-              <div className="absolute right-0 mt-1 w-32 rounded-xl border border-ink-200 bg-white p-1 shadow-float dark:border-ink-700 dark:bg-ink-900">
-                {[
-                  { code: 'en', label: 'English' },
-                  { code: 'ne', label: 'नेपाली' },
-                ].map((l) => (
-                  <button
-                    key={l.code}
-                    onClick={() => {
-                      setLang(l.code as 'en' | 'ne');
-                      setLangOpen(false);
-                    }}
-                    className={cn(
-                      'block w-full rounded-lg px-3 py-1.5 text-left text-sm',
-                      lang === l.code ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/40' : 'hover:bg-ink-100 dark:hover:bg-ink-800'
-                    )}
-                  >
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-600 hover:bg-ink-100 dark:text-ink-300 dark:hover:bg-ink-800"
-            aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-          >
-            {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        <div className="cl-nav__actions">
+          <button type="button" className="cl-nav__theme" onClick={toggleTheme} aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
-
-          {role ? (
-            <Button size="sm" leftIcon={<Bell className="h-4 w-4" />} onClick={() => navigate('/citizen/dashboard')}>
-              Dashboard
-            </Button>
-          ) : (
-            <div className="hidden items-center gap-2 sm:flex">
-              <Button variant="outline" size="sm" leftIcon={<LogIn className="h-4 w-4" />} onClick={() => navigate('/login')}>
-                Login
-              </Button>
-              <Button size="sm" leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => navigate('/register')}>
-                Register
-              </Button>
-            </div>
-          )}
-
-          <button
-            onClick={() => setMobileOpen((o) => !o)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-600 hover:bg-ink-100 lg:hidden dark:text-ink-300 dark:hover:bg-ink-800"
-            aria-label="Toggle menu"
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <Link className="cl-nav__signin" to={dashboardPath}>{role ? 'Dashboard' : 'Sign in'}</Link>
+          {!role && <Link className="cl-nav__cta" to="/register">Get started <ArrowUpRight size={17} aria-hidden="true" /></Link>}
+          <button type="button" className="cl-nav__hamburger" onClick={() => setMobileOpen(v => !v)} aria-expanded={mobileOpen} aria-controls="cl-mobile-menu" aria-label={mobileOpen ? 'Close menu' : 'Open menu'}>
+            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </div>
-
       {mobileOpen && (
-        <div className="border-t border-ink-200 bg-white lg:hidden dark:border-ink-800 dark:bg-ink-950">
-          <nav className="container-page flex flex-col gap-1 py-3" aria-label="Mobile">
-            {navLinks.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                onClick={() => setMobileOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    'rounded-lg px-3 py-2.5 text-sm font-medium',
-                    isActive ? 'bg-primary-50 text-primary-700' : 'text-ink-700 hover:bg-ink-100'
-                  )
-                }
-              >
-                {l.label}
-              </NavLink>
-            ))}
-            {!role && (
-              <div className="mt-2 flex gap-2 border-t border-ink-100 pt-3">
-                <Button variant="outline" fullWidth leftIcon={<LogIn className="h-4 w-4" />} onClick={() => { navigate('/login'); setMobileOpen(false); }}>
-                  Login
-                </Button>
-                <Button fullWidth leftIcon={<UserPlus className="h-4 w-4" />} onClick={() => { navigate('/register'); setMobileOpen(false); }}>
-                  Register
-                </Button>
-              </div>
-            )}
-          </nav>
-        </div>
+        <nav id="cl-mobile-menu" className="cl-nav__mobile" aria-label="Mobile navigation">
+          {pages.map(({ label, to }) => <Link onClick={() => setMobileOpen(false)} to={to} key={to}>{label}</Link>)}
+          <a onClick={() => setMobileOpen(false)} href="/#how-it-works">How it works</a>
+          <Link onClick={() => setMobileOpen(false)} to={dashboardPath}>{role ? 'Dashboard' : 'Sign in'}</Link>
+          {!role && <Link onClick={() => setMobileOpen(false)} to="/register">Get started →</Link>}
+        </nav>
       )}
     </header>
   );

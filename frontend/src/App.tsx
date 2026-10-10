@@ -1,5 +1,4 @@
 import { Navigate,Route,Routes,useLocation } from "react-router-dom";
-import { Chatbot } from "./components/common/Chatbot";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { PublicLayout } from "./components/layout/PublicLayout";
 import { ToastContainer } from "./components/ui/Toast";
@@ -134,7 +133,6 @@ function AppRoutes() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace/>}/>
     </Routes>
-    <Chatbot/>
     <ToastContainer/>
     </>
   )
