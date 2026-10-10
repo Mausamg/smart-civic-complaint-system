@@ -185,6 +185,106 @@ public sealed class ComplaintQueryService(
     }
     
     
+public async Task<PaginatedResponse<ComplaintResponse>>
+    GetMyComplaintsPagedAsync(
+        Guid userId,
+        GetScopedComplaintsRequest request,
+        CancellationToken cancellationToken = default)
+{
+    // 1. Only retrieve complaints owned by this citizen
+    var query = context.Complaints
+        .AsNoTracking()
+        .Where(c => c.SubmittedByUserId == userId);
+
+    // 2. Filter by status
+    if (request.Status.HasValue)
+    {
+        query = query.Where(c =>
+            c.Status == request.Status.Value);
+    }
+
+    // 3. Filter by priority
+    if (request.Priority.HasValue)
+    {
+        query = query.Where(c =>
+            c.Priority == request.Priority.Value);
+    }
+
+    // 4. Search complaint information
+    if (!string.IsNullOrWhiteSpace(request.Search))
+    {
+        var search = $"%{request.Search.Trim()}%";
+
+        query = query.Where(c =>
+            EF.Functions.ILike(c.Title, search) ||
+            EF.Functions.ILike(c.Description, search) ||
+            EF.Functions.ILike(c.Category, search) ||
+            EF.Functions.ILike(c.Location, search));
+    }
+
+    // 5. Count matching records before pagination
+    var totalCount = await query.CountAsync(
+        cancellationToken);
+
+    // 6. Apply sorting
+    var sortBy = request.SortBy.Trim().ToLowerInvariant();
+    var direction = request.SortDirection
+        .Trim().ToLowerInvariant();
+
+    query = (sortBy, direction) switch
+    {
+        ("createdat", "asc") =>
+            query.OrderBy(c => c.CreatedAt),
+
+        ("title", "asc") =>
+            query.OrderBy(c => c.Title),
+
+        ("title", "desc") =>
+            query.OrderByDescending(c => c.Title),
+
+        ("priority", "asc") =>
+            query.OrderBy(c => c.Priority),
+
+        ("priority", "desc") =>
+            query.OrderByDescending(c => c.Priority),
+
+        ("status", "asc") =>
+            query.OrderBy(c => c.Status),
+
+        ("status", "desc") =>
+            query.OrderByDescending(c => c.Status),
+
+        _ => query.OrderByDescending(c => c.CreatedAt)
+    };
+
+    // Stable ordering for complaints with equal sort values
+    query = ((IOrderedQueryable<Complaint>)query)
+        .ThenBy(c => c.Id);
+
+    // 7. Calculate how many records to skip
+    var offset = (long)(request.Page - 1) * request.PageSize;
+
+    var complaints = offset > int.MaxValue
+        ? new List<ComplaintResponse>()
+        : await query
+            .Skip((int)offset)
+            .Take(request.PageSize)
+            .Select(ComplaintProjections.ToResponse)
+            .ToListAsync(cancellationToken);
+
+    // 8. Return pagination information and results
+    return new PaginatedResponse<ComplaintResponse>
+    {
+        Page = request.Page,
+        PageSize = request.PageSize,
+        TotalCount = totalCount,
+        TotalPages = (int)Math.Ceiling(
+            totalCount / (double)request.PageSize),
+        Items = complaints
+    };
+}
+
+
     public async Task<List<ComplaintResponse>> GetAssignedToMeAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -204,6 +304,113 @@ public sealed class ComplaintQueryService(
     }
     
     
+public async Task<PaginatedResponse<ComplaintResponse>>
+    GetAssignedToMePagedAsync(
+        Guid userId,
+        GetScopedComplaintsRequest request,
+        CancellationToken cancellationToken = default)
+{
+    // 1. Only complaints assigned to the logged-in staff member
+    var query = context.Complaints
+        .AsNoTracking()
+        .Where(c =>
+            c.AssignedToUserId == userId &&
+            c.Status != ComplaintStatus.Resolved &&
+            c.Status != ComplaintStatus.Rejected);
+
+    // 2. Filter by status
+    if (request.Status.HasValue)
+    {
+        query = query.Where(c =>
+            c.Status == request.Status.Value);
+    }
+
+    // 3. Filter by priority
+    if (request.Priority.HasValue)
+    {
+        query = query.Where(c =>
+            c.Priority == request.Priority.Value);
+    }
+
+    // 4. Search assigned complaints
+    if (!string.IsNullOrWhiteSpace(request.Search))
+    {
+        var search = $"%{request.Search.Trim()}%";
+
+        query = query.Where(c =>
+            EF.Functions.ILike(c.Title, search) ||
+            EF.Functions.ILike(c.Description, search) ||
+            EF.Functions.ILike(c.Category, search) ||
+            EF.Functions.ILike(c.Location, search));
+    }
+
+    // 5. Count all matching complaints before pagination
+    var totalCount = await query.CountAsync(
+        cancellationToken);
+
+    // 6. Apply sorting
+    var sortBy = request.SortBy?.Trim().ToLowerInvariant()
+                 ?? "createdat";
+
+    var direction = request.SortDirection?.Trim().ToLowerInvariant()
+                    ?? "desc";
+
+    IOrderedQueryable<Complaint> orderedQuery =
+        (sortBy, direction) switch
+        {
+            ("createdat", "asc") =>
+                query.OrderBy(c => c.CreatedAt),
+
+            ("title", "asc") =>
+                query.OrderBy(c => c.Title),
+
+            ("title", "desc") =>
+                query.OrderByDescending(c => c.Title),
+
+            ("priority", "asc") =>
+                query.OrderBy(c => c.Priority),
+
+            ("priority", "desc") =>
+                query.OrderByDescending(c => c.Priority),
+
+            ("status", "asc") =>
+                query.OrderBy(c => c.Status),
+
+            ("status", "desc") =>
+                query.OrderByDescending(c => c.Status),
+
+            _ =>
+                query.OrderByDescending(c => c.CreatedAt)
+        };
+
+    // Stable ordering when sort values are identical
+    orderedQuery = orderedQuery.ThenBy(c => c.Id);
+
+    // 7. Calculate pagination offset safely
+    var offset =
+        ((long)request.Page - 1) * request.PageSize;
+
+    var complaints = offset > int.MaxValue
+        ? new List<ComplaintResponse>()
+        : await orderedQuery
+            .Skip((int)offset)
+            .Take(request.PageSize)
+            .Select(ComplaintProjections.ToResponse)
+            .ToListAsync(cancellationToken);
+
+    // 8. Return paginated response
+    return new PaginatedResponse<ComplaintResponse>
+    {
+        Page = request.Page,
+        PageSize = request.PageSize,
+        TotalCount = totalCount,
+        TotalPages = (int)Math.Ceiling(
+            totalCount / (double)request.PageSize),
+        Items = complaints
+    };
+}
+
+
     public async Task<ComplaintResponse?> GetByIdAsync(
         Guid complaintId,
         CancellationToken cancellationToken = default)

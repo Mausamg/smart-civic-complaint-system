@@ -286,6 +286,33 @@ public sealed class ComplaintsController(
     }
 
 
+    [HttpGet("my/paged")]
+    [Authorize(Roles = AppRoles.Citizen)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyComplaintsPaged(
+        [FromQuery] GetScopedComplaintsRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+        }
+
+        var result =
+            await complaintQueryService.GetMyComplaintsPagedAsync(
+                userId,
+                request,
+                cancellationToken);
+
+        return Ok(result);
+    }
+
     [HttpGet("assigned-to-me")]
     [Authorize(Roles = AppRoles.Staff)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -309,6 +336,32 @@ public sealed class ComplaintsController(
         return Ok(complaints);
     }
 
+    [HttpGet("assigned-to-me/paged")]
+    [Authorize(Roles = AppRoles.Staff)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAssignedToMePaged(
+        [FromQuery] GetScopedComplaintsRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+        }
+
+        var result =
+            await complaintQueryService.GetAssignedToMePagedAsync(
+                userId,
+                request,
+                cancellationToken);
+
+        return Ok(result);
+    }
 
     [HttpGet("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
