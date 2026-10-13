@@ -29,7 +29,11 @@ export function CitizenDashboard() {
     <div>
       <PageHeader
         title={`Welcome back, ${user?.name.split(' ')[0]}`}
-        subtitle={`Here is an overview of your civic complaints in ${user?.ward}.`}
+        subtitle={
+          user?.ward
+              ? `Here is an overview of your civic complaints in ${user.ward}.`
+              : 'Here is an overview of your civic complaints.'
+        }
         breadcrumbs={[{ label: 'Dashboard' }]}
         actions={<Link to="/citizen/report"><Button leftIcon={<FilePlus2 className="h-4 w-4" />}>Report New Complaint</Button></Link>}
       />
