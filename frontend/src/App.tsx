@@ -17,7 +17,6 @@ import { ForgotPasswordPage } from "./pages/auth/ForgetPasswordPage";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { RegisterPage } from "./pages/auth/RegsiterPage";
 import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
-import { VerifyEmailPage } from "./pages/auth/VerifyEmailPage";
 
 // Citizen Pages
 import { AnnouncementsPage } from "./pages/citizen/AnnouncementsPage";
@@ -77,7 +76,7 @@ function AppRoutes() {
       <Route path="/register" element={ role? <Navigate to={`/${role}/dashboard`} replace />:<RegisterPage/>}/>
       <Route path="/forgot-password" element={<ForgotPasswordPage/>}/>
       <Route path="/reset-password" element={<ResetPasswordPage/>}/>
-      <Route path="/verify-email" element={<VerifyEmailPage/>}/>
+      <Route path="/verify-email" element={<Navigate to="/register" replace />} />
 
       {/* Citizen Routes */}
       <Route path="/citizen" element={<RequireRole role="citizen"><DashboardLayout /></RequireRole>}>
