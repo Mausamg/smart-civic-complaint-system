@@ -57,8 +57,18 @@ function RequireRole({ role, children }: { role: 'citizen' | 'staff' | 'admin'; 
   }
 
 function AppRoutes() {
-  const { role } = useApp();
+  const { role, authLoading } = useApp();
 
+  if (authLoading) {
+    return (
+        <div
+            role="status"
+            className="flex min-h-screen items-center justify-center bg-ink-50 text-ink-600 dark:bg-ink-950 dark:text-ink-300"
+        >
+          Restoring your CivicLink session...
+        </div>
+    );
+  }
   return(
     <>
     <Routes>
