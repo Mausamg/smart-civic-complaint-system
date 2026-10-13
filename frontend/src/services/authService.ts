@@ -104,3 +104,31 @@ export async function registerUser(
     );
   }
 }
+
+
+export interface CurrentUserResponse {
+  userId: string;
+  email: string;
+  roles: string[];
+}
+
+export async function getCurrentUser(
+    accessToken: string
+): Promise<CurrentUserResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error('Your session has expired. Please sign in again.');
+  }
+
+  if (!response.ok) {
+    throw new Error('Unable to verify your session.');
+  }
+
+  return (await response.json()) as CurrentUserResponse;
+}
