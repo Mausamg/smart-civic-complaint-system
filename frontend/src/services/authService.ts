@@ -52,3 +52,55 @@ export async function loginUser(
 
   return data as LoginResponse;
 }
+
+
+export interface RegisterRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+export async function registerUser(
+    request: RegisterRequest
+): Promise<void> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        firstName: request.firstName.trim(),
+        lastName: request.lastName.trim(),
+        email: request.email.trim(),
+        password: request.password,
+      }),
+    });
+  } catch {
+    throw new Error(
+        'Unable to connect to the server. Please try again.'
+    );
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const validationErrors = data?.errors
+        ? Object.values(data.errors).flat()
+        : [];
+
+    const firstError = validationErrors.find(
+        (error): error is string => typeof error === 'string'
+    );
+
+    throw new Error(
+        data?.message ||
+        firstError ||
+        data?.title ||
+        'Registration failed. Please try again.'
+    );
+  }
+}
