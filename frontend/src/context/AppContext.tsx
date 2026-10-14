@@ -9,6 +9,11 @@ import {
 } from 'react';
 
 import { getCurrentUser } from '../services/authService';
+import {
+    getTokenExpiryMs,
+    isTokenExpired,
+} from '../utils/tokenUtils';
+
 import type { LoginResponse } from '../services/authService';
 import type { Toast, User, UserRole } from '../types';
 
@@ -83,7 +88,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error('Invalid stored session.');
         }
 
-        const verified = await getCurrentUser(
+          if (isTokenExpired(session.accessToken)) {
+              throw new Error('Stored session has expired.');
+          }
+
+          const verified = await getCurrentUser(
             session.accessToken
         );
 
@@ -138,11 +147,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
             response.user.roles
         );
 
-        if (!authenticatedRole || !response.accessToken) {
-          throw new Error('Invalid authentication response.');
-        }
 
-        const authenticatedUser: User = {
+          if (
+              !authenticatedRole ||
+              !response.accessToken ||
+              isTokenExpired(response.accessToken)
+          ) {
+              throw new Error('Invalid or expired authentication token.');
+          }
+
+
+          const authenticatedUser: User = {
           id: response.user.id,
           name: `${response.user.firstName} ${response.user.lastName}`.trim(),
           email: response.user.email,
@@ -176,7 +191,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
   }, []);
 
-  const toggleTheme = useCallback(() => {
+
+    useEffect(() => {
+        if (!accessToken) return;
+
+        // Stop the session if the token is already expired.
+        if (isTokenExpired(accessToken)) {
+            logout();
+            return;
+        }
+
+        const expiresAt = getTokenExpiryMs(accessToken);
+
+        if (expiresAt === null) {
+            logout();
+            return;
+        }
+
+        // Schedule logout 5 seconds before JWT expiration.
+        const millisecondsUntilExpiry = Math.max(
+            0,
+            expiresAt - Date.now() - 5000
+        );
+
+        const expirationTimer = window.setTimeout(() => {
+            logout();
+        }, millisecondsUntilExpiry);
+
+        // Check expiration when the user returns to the tab.
+        const checkExpiration = () => {
+            if (isTokenExpired(accessToken)) {
+                logout();
+            }
+        };
+
+        window.addEventListener('focus', checkExpiration);
+        document.addEventListener(
+            'visibilitychange',
+            checkExpiration
+        );
+
+        return () => {
+            window.clearTimeout(expirationTimer);
+            window.removeEventListener('focus', checkExpiration);
+            document.removeEventListener(
+                'visibilitychange',
+                checkExpiration
+            );
+        };
+    }, [accessToken, logout]);
+
+
+    const toggleTheme = useCallback(() => {
     setTheme((current) =>
         current === 'light' ? 'dark' : 'light'
     );
