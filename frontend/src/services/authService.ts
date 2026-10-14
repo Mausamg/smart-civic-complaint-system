@@ -1,3 +1,4 @@
+import { apiRequest, ApiError } from './apiClient';
 
 export interface AuthUser {
   id: string;
@@ -112,23 +113,28 @@ export interface CurrentUserResponse {
   roles: string[];
 }
 
+
 export async function getCurrentUser(
     accessToken: string
 ): Promise<CurrentUserResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  try {
+    return await apiRequest<CurrentUserResponse>(
+        '/api/auth/me',
+        {
+          method: 'GET',
+          token: accessToken,
+        }
+    );
+  } catch (error) {
+    if (
+        error instanceof ApiError &&
+        error.status === 401
+    ) {
+      throw new Error(
+          'Your session has expired. Please sign in again.'
+      );
+    }
 
-  if (response.status === 401) {
-    throw new Error('Your session has expired. Please sign in again.');
+    throw error;
   }
-
-  if (!response.ok) {
-    throw new Error('Unable to verify your session.');
-  }
-
-  return (await response.json()) as CurrentUserResponse;
 }
