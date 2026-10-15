@@ -1,4 +1,4 @@
-
+import { setUnauthorizedHandler } from '../services/apiClient';
 import {
   createContext,
   useCallback,
@@ -191,6 +191,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
   }, []);
 
+    useEffect(() => {
+        if (!accessToken) return;
+
+        return setUnauthorizedHandler((rejectedToken) => {
+            // Prevent an old request from logging out
+            // a user who has since signed in again.
+            if (rejectedToken === accessToken) {
+                logout();
+            }
+        });
+    }, [accessToken, logout]);
 
     useEffect(() => {
         if (!accessToken) return;
@@ -293,6 +304,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }}
       >
         {children}
+
       </AppContext.Provider>
   );
 }

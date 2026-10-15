@@ -4,6 +4,24 @@ const API_BASE_URL =
   'http://localhost:7001';
 
 
+type UnauthorizedHandler = (
+    rejectedToken: string
+) => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(
+    handler: UnauthorizedHandler
+): () => void {
+  unauthorizedHandler = handler;
+
+  return () => {
+    if (unauthorizedHandler === handler) {
+      unauthorizedHandler = null;
+    }
+  };
+}
+
 export class ApiError extends Error {
   public readonly status: number;
 
@@ -20,7 +38,6 @@ export interface ApiRequestOptions
   extends Omit<RequestInit, 'body'> {
   token?: string;
   json?: unknown;
-  onUnauthorized?: () => void;
 }
 
 export async function apiRequest<T>(
@@ -30,7 +47,6 @@ export async function apiRequest<T>(
   const {
     token,
     json,
-    onUnauthorized,
     headers: customHeaders,
     ...requestOptions
   } = options;
@@ -68,7 +84,7 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     if (response.status === 401 && token) {
-      onUnauthorized?.();
+      unauthorizedHandler?.(token);
     }
 
     const errorData =
