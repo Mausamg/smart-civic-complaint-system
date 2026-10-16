@@ -213,7 +213,7 @@ export function MyComplaintsPage() {
       />
 
       <div className="mb-4 card p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-col gap-3">
           <SearchInput
             value={query}
             onChange={(value) => {
@@ -221,10 +221,10 @@ export function MyComplaintsPage() {
               setPage(1);
             }}
             placeholder="Search your complaints..."
-            className="flex-1"
+            className="w-full"
           />
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Select
               value={status}
               onChange={(e) => {
