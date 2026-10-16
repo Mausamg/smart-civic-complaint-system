@@ -39,3 +39,16 @@ export async function getMyComplaints(
     }
   );
 }
+
+export async function getComplaintById(
+    complaintId: string,
+    accessToken: string
+): Promise<ComplaintApiResponse> {
+  return apiRequest<ComplaintApiResponse>(
+      `/api/complaints/${encodeURIComponent(complaintId)}`,
+      {
+        method: 'GET',
+        token: accessToken,
+      }
+  );
+}
