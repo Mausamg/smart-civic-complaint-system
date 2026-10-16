@@ -225,43 +225,50 @@ export function MyComplaintsPage() {
           />
 
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setPage(1);
-              }}
-              placeholder="All statuses"
-              options={statusOptions}
-              className="w-auto"
-            />
 
-            <Select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setPage(1);
-              }}
-              placeholder="All categories"
-              options={categoryOptions}
-              className="w-auto"
-            />
+            <div className="w-full shrink-0 sm:w-44">
+              <Select
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="All statuses"
+                  options={statusOptions}
+                  className="w-full"
+              />
+            </div>
 
-            <Select
-              value={sort}
-              onChange={(e) => {
-                setSort(e.target.value);
-                setPage(1);
-              }}
-              options={[
-                { value: 'recent', label: 'Most recent' },
-                { value: 'oldest', label: 'Oldest first' },
-                { value: 'priority', label: 'By priority' },
-              ]}
-              className="w-auto"
-            />
+            <div className="w-full shrink-0 sm:w-48">
+              <Select
+                  value={category}
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="All categories"
+                  options={categoryOptions}
+                  className="w-full"
+              />
+            </div>
 
-            <div className="flex rounded-xl border border-ink-200 p-0.5 dark:border-ink-700">
+            <div className="w-full shrink-0 sm:w-44">
+              <Select
+                  value={sort}
+                  onChange={(e) => {
+                    setSort(e.target.value);
+                    setPage(1);
+                  }}
+                  options={[
+                    { value: 'recent', label: 'Most recent' },
+                    { value: 'oldest', label: 'Oldest first' },
+                    { value: 'priority', label: 'By priority' },
+                  ]}
+                  className="w-full"
+              />
+            </div>
+
+            <div className="flex w-fit shrink-0 rounded-xl border border-ink-200 p-0.5 sm:ml-auto dark:border-ink-700">
               <button
                 type="button"
                 onClick={() => setView('grid')}
