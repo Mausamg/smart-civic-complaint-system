@@ -52,3 +52,35 @@ export async function getComplaintById(
       }
   );
 }
+
+
+export interface CreateComplaintRequest {
+  title: string;
+  description: string;
+  category: string;
+  location: string;
+}
+
+export interface CreatedComplaintResponse {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  location: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+}
+export async function createComplaint(
+  request: CreateComplaintRequest,
+  accessToken: string
+): Promise<CreatedComplaintResponse> {
+  return apiRequest<CreatedComplaintResponse>(
+    '/api/complaints',
+    {
+      method: 'POST',
+      token: accessToken,
+      json: request,
+    }
+  );
+}
