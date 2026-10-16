@@ -1,4 +1,4 @@
-
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, Table as TableIcon } from 'lucide-react';
 
@@ -28,19 +28,33 @@ const priorityOrder: Record<string, number> = {
 };
 
 export function MyComplaintsPage() {
+  const navigate = useNavigate();
   const { accessToken } = useApp();
 
   const [complaints, setComplaints] = useState<ComplaintApiResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  
+  const [view, setView] = useState<'grid' | 'table'>(() => {
+    const savedView = sessionStorage.getItem(
+        'civiclink-my-complaints-view'
+    );
 
-  const [view, setView] = useState<'grid' | 'table'>('grid');
+    return savedView === 'table' ? 'table' : 'grid';
+  });
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
   const [sort, setSort] = useState('recent');
   const [page, setPage] = useState(1);
+  // Persist the selected Grid/Table view.
+  useEffect(() => {
+    sessionStorage.setItem(
+        'civiclink-my-complaints-view',
+        view
+    );
+  }, [view]);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,9 +171,13 @@ export function MyComplaintsPage() {
       key: 'title',
       header: 'Title',
       render: (c) => (
-        <span className="text-sm font-medium">
-          {c.title}
-        </span>
+          <Link
+              to={`/citizen/complaints/${encodeURIComponent(c.id)}`}
+              onClick={(event) => event.stopPropagation()}
+              className="text-sm font-medium text-primary-700 hover:underline focus-visible:underline dark:text-primary-300"
+          >
+            {c.title}
+          </Link>
       ),
     },
     {
@@ -334,11 +352,16 @@ export function MyComplaintsPage() {
           ))}
         </div>
       ) : (
-        <DataTable
-          columns={columns}
-          rows={paged}
-          rowKey={(c) => c.id}
-        />
+          <DataTable
+              columns={columns}
+              rows={paged}
+              rowKey={(c) => c.id}
+              onRowClick={(complaint) =>
+                  navigate(
+                      `/citizen/complaints/${encodeURIComponent(complaint.id)}`
+                  )
+              }
+          />
       )}
 
       {!loading && !error && totalPages > 1 && (
