@@ -35,7 +35,7 @@ export function MyComplaintsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  
+
   const [view, setView] = useState<'grid' | 'table'>(() => {
     const savedView = sessionStorage.getItem(
         'civiclink-my-complaints-view'
