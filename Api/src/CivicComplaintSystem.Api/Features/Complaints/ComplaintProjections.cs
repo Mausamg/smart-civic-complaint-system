@@ -15,9 +15,19 @@ public static class ComplaintProjections
                 Category = c.Category,
                 Location = c.Location,
 
+                Subcategory = c.Subcategory,
+                ObservedAt = c.ObservedAt,
+                AffectedPeopleRange = c.AffectedPeopleRange,
+                IsActive = c.IsActive,
+
+                Municipality = c.Municipality,
+                Ward = c.Ward,
+                Latitude = c.Latitude,
+                Longitude = c.Longitude,
+
                 Status =
                     c.Status.ToString(),
-                
+
                 Priority =
                     c.Priority.ToString(),
 

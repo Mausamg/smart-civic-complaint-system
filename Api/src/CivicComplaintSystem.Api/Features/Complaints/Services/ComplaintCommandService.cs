@@ -14,10 +14,22 @@ public sealed class ComplaintCommandService(
         var complaint = new Complaint
         {
             Id = Guid.NewGuid(),
+
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
             Category = request.Category.Trim(),
             Location = request.Location.Trim(),
+
+            Subcategory = request.Subcategory?.Trim(),
+            ObservedAt = request.ObservedAt?.UtcDateTime,
+            AffectedPeopleRange = request.AffectedPeopleRange?.Trim(),
+            IsActive = request.IsActive,
+
+            Municipality = request.Municipality?.Trim(),
+            Ward = request.Ward?.Trim(),
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+
             Status = ComplaintStatus.Submitted,
             CreatedAt = DateTime.UtcNow,
             SubmittedByUserId = userId
