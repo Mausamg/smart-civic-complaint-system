@@ -1,6 +1,6 @@
 import {createComplaint} from '@/services/complaintService';
 import {FileUploader, type UploadedFile} from '@/components/forms/FileUploader';
-import {MapContainer} from '@/components/maps/MapContainer';
+import { CitizenLocationPicker } from '@/components/maps/CitizenLocationPicker';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';
 import {Checkbox, Input, RadioGroup, Select, Textarea} from '@/components/ui/Form';
@@ -31,8 +31,8 @@ interface FormState {
     observedAt: string;
     isActive: boolean;
     affected: string;
-    lat: number;
-    lng: number;
+    lat: number | null;
+    lng: number | null;
     municipality: string;
     ward: string;
     street: string;
@@ -45,7 +45,7 @@ interface FormState {
 const initial: FormState = {
     category: '', subcategory: '', title: '', priority: 'medium',
     description: '', observedAt: '', isActive: true, affected: '1-10',
-    lat: 27.7172, lng: 85.3249, municipality: 'Kathmandu Metropolitan City', ward: 'Ward 7',
+    lat: null, lng: null, municipality: 'Kathmandu Metropolitan City', ward: 'Ward 7',
     street: '', address: '', anonymous: false, isPublic: true, declaration: false,
 };
 
@@ -323,14 +323,27 @@ export function ReportComplaintPage() {
                         </div>
 
                         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                            The map currently starts at a default location.
-                            GPS detection and location search are not yet available.
-                            Map coordinates are not saved when you submit this complaint.
+                            The map starts in Kathmandu for navigation only.
+                            Click the map to select an incident location.
+                            Map coordinates are not submitted to the API yet.
                             Please enter the correct full address below.
                         </p>
 
-                        <MapContainer height="h-72" draggableMarker center={{lat: form.lat, lng: form.lng}}
-                                      onMarkerDrag={(lat, lng) => setForm((f) => ({...f, lat, lng}))}/>
+
+                        <CitizenLocationPicker
+                            selectedLocation={
+                                form.lat !== null && form.lng !== null
+                                    ? { lat: form.lat, lng: form.lng }
+                                    : null
+                            }
+                            onLocationSelect={({ lat, lng }) =>
+                                setForm((f) => ({
+                                    ...f,
+                                    lat,
+                                    lng,
+                                }))
+                            }
+                        />
                         <div className="grid gap-4 sm:grid-cols-2">
                             <Select label="Municipality" value={form.municipality}
                                     onChange={(e) => set('municipality', e.target.value)} options={[
@@ -351,7 +364,9 @@ export function ReportComplaintPage() {
                                placeholder="e.g. Chabahil Chowk, Kathmandu 44600" error={errors.address}/>
                         <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500 dark:bg-ink-800/50">
                             <MapPin
-                                className="mr-1 inline h-3 w-3"/> Coordinates: {form.lat.toFixed(4)}, {form.lng.toFixed(4)}
+                                className="mr-1 inline h-3 w-3"/>Coordinates: {form.lat !== null && form.lng !== null
+                            ? `${form.lat.toFixed(4)}, ${form.lng.toFixed(4)}`
+                            : 'Not selected'}
                         </p>
                     </div>
                 )}
