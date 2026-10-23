@@ -63,6 +63,48 @@ export function CitizenComplaintDetailsOverview({
               : 'Not updated yet'}
           </p>
         </div>
+        <div>
+          <p className="text-xs text-ink-400">Subcategory</p>
+          <p className="mt-1 text-sm font-medium">
+            {complaint.subcategory || 'Not specified'}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs text-ink-400">
+            Date and time observed
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {complaint.observedAt
+                ? new Date(complaint.observedAt).toLocaleString()
+                : 'Not specified'}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs text-ink-400">
+            Number of people affected
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {complaint.affectedPeopleRange
+                ? `${complaint.affectedPeopleRange} people`
+                : 'Not specified'}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs text-ink-400">
+            Issue currently active
+          </p>
+          <p className="mt-1 text-sm font-medium">
+            {complaint.isActive === null ||
+            complaint.isActive === undefined
+                ? 'Not specified'
+                : complaint.isActive
+                    ? 'Yes'
+                    : 'No'}
+          </p>
+        </div>
       </div>
     </Card>
   );

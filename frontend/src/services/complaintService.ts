@@ -1,6 +1,4 @@
-
 import { apiRequest } from './apiClient';
-
 /**
  * Response from the ASP.NET Core Complaints API.
  *
@@ -8,17 +6,28 @@ import { apiRequest } from './apiClient';
  * frontend's existing Complaint UI model.
  */
 export interface ComplaintApiResponse {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  location: string;
-  status: string;
-  priority: string;
-  createdAt: string;
-  updatedAt: string | null;
-  submittedByUserId: string;
-  assignedToUserId: string | null;
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+
+    subcategory: string | null;
+    observedAt: string | null;
+    affectedPeopleRange: string | null;
+    isActive: boolean | null;
+
+    municipality: string | null;
+    ward: string | null;
+    latitude: number | null;
+    longitude: number | null;
+
+    status: string;
+    priority: string;
+    createdAt: string;
+    updatedAt: string | null;
+    submittedByUserId: string;
+    assignedToUserId: string | null;
 }
 
 /**
@@ -52,7 +61,6 @@ export async function getComplaintById(
       }
   );
 }
-
 
 export interface CreateComplaintRequest {
     title: string;
