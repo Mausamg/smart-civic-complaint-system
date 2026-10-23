@@ -1,6 +1,6 @@
 import {createComplaint} from '@/services/complaintService';
 import {FileUploader, type UploadedFile} from '@/components/forms/FileUploader';
-import { CitizenLocationPicker } from '@/components/maps/CitizenLocationPicker';
+import {CitizenLocationPicker} from '@/components/maps/CitizenLocationPicker';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';
 import {Checkbox, Input, RadioGroup, Select, Textarea} from '@/components/ui/Form';
@@ -153,6 +153,30 @@ export function ReportComplaintPage() {
             return;
         }
 
+        const latitude = form.lat;
+        const longitude = form.lng;
+
+        if (
+            (latitude === null) !== (longitude === null) ||
+            (latitude !== null &&
+                longitude !== null &&
+                (
+                    !Number.isFinite(latitude) ||
+                    latitude < -90 ||
+                    latitude > 90 ||
+                    !Number.isFinite(longitude) ||
+                    longitude < -180 ||
+                    longitude > 180
+                ))
+        ) {
+            addToast({
+                type: 'error',
+                title: 'Invalid map location',
+                message: 'Please select a valid incident location.',
+            });
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -162,10 +186,19 @@ export function ReportComplaintPage() {
                     description,
                     category,
                     location,
+
                     subcategory: form.subcategory.trim(),
                     observedAt: observedDate.toISOString(),
                     affectedPeopleRange: form.affected,
                     isActive: form.isActive,
+
+                    ...(latitude !== null && longitude !== null
+                        ? {
+                            latitude,
+                            longitude,
+                        }
+                        : {}),
+
                 },
                 accessToken
             );
@@ -178,7 +211,7 @@ export function ReportComplaintPage() {
 
             navigate(
                 `/citizen/complaints/${encodeURIComponent(createdComplaint.id)}`,
-                { replace: true }
+                {replace: true}
             );
         } catch (error: unknown) {
             addToast({
@@ -323,20 +356,20 @@ export function ReportComplaintPage() {
                         </div>
 
                         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                            The map starts in Kathmandu for navigation only.
-                            Click the map to select an incident location.
-                            Map coordinates are not submitted to the API yet.
-                            Please enter the correct full address below.
+                            The map starts in Kathmandu for navigation only. Click the map to select the incident
+                            location. If selected, the coordinates will be saved with your complaint. Please also enter
+                            the correct full address. Map selection does not automatically verify the municipality or
+                            ward.
                         </p>
 
 
                         <CitizenLocationPicker
                             selectedLocation={
                                 form.lat !== null && form.lng !== null
-                                    ? { lat: form.lat, lng: form.lng }
+                                    ? {lat: form.lat, lng: form.lng}
                                     : null
                             }
-                            onLocationSelect={({ lat, lng }) =>
+                            onLocationSelect={({lat, lng}) =>
                                 setForm((f) => ({
                                     ...f,
                                     lat,
@@ -414,6 +447,12 @@ export function ReportComplaintPage() {
                             <div className="rounded-xl border border-ink-100 p-4 dark:border-ink-800">
                                 <p className="text-xs font-semibold uppercase text-ink-400">Location</p>
                                 <p className="mt-2 text-sm text-ink-700 dark:text-ink-200">{form.address || '—'}</p>
+                                <p className="mt-2 text-xs text-ink-500">
+                                    Map location:{' '}
+                                    {form.lat !== null && form.lng !== null
+                                        ? `${form.lat.toFixed(6)}, ${form.lng.toFixed(6)}`
+                                        : 'Not selected'}
+                                </p>
                                 <p className="text-xs text-ink-500">{form.ward} · {form.municipality}</p>
                             </div>
                             <div className="rounded-xl border border-ink-100 p-4 dark:border-ink-800">
@@ -435,11 +474,10 @@ export function ReportComplaintPage() {
 
                             <div
                                 className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                                This version saves your complaint title, description,
-                                category, full address, subcategory, observed date and time,
-                                number of people affected, and whether the issue is still
-                                active. Selected priority, municipality, ward and map
-                                coordinates are not yet saved. Evidence uploads and
+                                This version saves your complaint title, description, category, full address,
+                                subcategory, observed date and time, number of people affected, and whether the issue is
+                                still active. Latitude and longitude are also saved if you selected a map location.
+                                Selected priority, municipality and ward are not yet saved. Evidence uploads and
                                 anonymous/public visibility settings are not supported yet.
                             </div>
 
@@ -457,15 +495,16 @@ export function ReportComplaintPage() {
 
                         </div>
 
-                      <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <p>
-                          Please ensure that the information provided is accurate
-                          and complete before submitting your complaint.
-                          Once submitted, you can view your complaint
-                          and track its status in My Complaints.
-                        </p>
-                      </div>
+                        <div
+                            className="flex items-start gap-2.5 rounded-xl bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0"/>
+                            <p>
+                                Please ensure that the information provided is accurate
+                                and complete before submitting your complaint.
+                                Once submitted, you can view your complaint
+                                and track its status in My Complaints.
+                            </p>
+                        </div>
                     </div>
                 )}
 
