@@ -44,11 +44,17 @@ interface FormState {
 
 const initial: FormState = {
     category: '', subcategory: '', title: '', priority: 'medium',
-    description: '', observedAt: '', isActive: true, affected: '1-10',
+    description: '', observedAt: '', isActive: true, affected: '',
     lat: null, lng: null, municipality: 'Kathmandu Metropolitan City', ward: 'Ward 7',
     street: '', address: '', anonymous: false, isPublic: true, declaration: false,
 };
+const getLocalDateTimeMax = (): string => {
+    const now = new Date();
+    const pad = (value: number) =>
+        String(value).padStart(2, '0');
 
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
 export function ReportComplaintPage() {
     const {addToast, accessToken} = useApp();
     const navigate = useNavigate();
@@ -68,8 +74,23 @@ export function ReportComplaintPage() {
             if (!form.title.trim()) e.title = 'Enter a complaint title';
         }
         if (s === 2) {
-            if (form.description.trim().length < 20) e.description = 'Please describe the issue (at least 20 characters)';
-            if (!form.observedAt) e.observedAt = 'Select when you observed the issue';
+            if (form.description.trim().length < 20) {
+                e.description =
+                    'Please describe the issue (at least 20 characters)';
+            }
+
+            if (!form.observedAt) {
+                e.observedAt = 'Select when you observed the issue';
+            } else {
+                const observedDate = new Date(form.observedAt);
+
+                if (Number.isNaN(observedDate.getTime())) {
+                    e.observedAt = 'Enter a valid observation date and time';
+                } else if (observedDate.getTime() > Date.now()) {
+                    e.observedAt =
+                        'Observation date and time cannot be in the future';
+                }
+            }
         }
         if (s === 3) {
             if (!form.street.trim()) e.street = 'Enter street or landmark';
@@ -150,6 +171,16 @@ export function ReportComplaintPage() {
                 title: 'Invalid observation date',
                 message: 'Please select a valid date and time.',
             });
+
+            return;
+        }
+        if (observedDate.getTime() > Date.now()) {
+            addToast({
+                type: 'error',
+                title: 'Future observation date',
+                message:
+                    'The observation date and time cannot set be in the future.',
+            });
             return;
         }
 
@@ -189,7 +220,7 @@ export function ReportComplaintPage() {
 
                     subcategory: form.subcategory.trim(),
                     observedAt: observedDate.toISOString(),
-                    affectedPeopleRange: form.affected,
+                    affectedPeopleRange: form.affected || null,
                     isActive: form.isActive,
 
                     ...(latitude !== null && longitude !== null
@@ -329,16 +360,21 @@ export function ReportComplaintPage() {
                             <p className="mt-1 text-xs text-ink-400">{form.description.length} characters · minimum
                                 20</p>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Input label="Date and time observed" type="datetime-local" value={form.observedAt}
+                        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
+                            <Input label="Date and time observed" type="datetime-local" max={getLocalDateTimeMax()} value={form.observedAt}
                                    onChange={(e) => set('observedAt', e.target.value)} error={errors.observedAt}/>
-                            <Select label="Number of people affected" value={form.affected}
-                                    onChange={(e) => set('affected', e.target.value)} options={[
-                                {value: '1-10', label: '1–10 people'},
-                                {value: '10-50', label: '10–50 people'},
-                                {value: '50-100', label: '50–100 people'},
-                                {value: '100+', label: '100+ people'},
-                            ]}/>
+                            <Select
+                                label="People affected (Optional)"
+                                value={form.affected}
+                                onChange={(e) => set('affected', e.target.value)}
+                                options={[
+                                    { value: '', label: 'Not sure / Prefer not to estimate' },
+                                    { value: '1-10', label: '1–10 people' },
+                                    { value: '10-50', label: '10–50 people' },
+                                    { value: '50-100', label: '50–100 people' },
+                                    { value: '100+', label: 'More than 100 people' },
+                                ]}
+                            />
                         </div>
                         <Checkbox label="The issue is currently still active" checked={form.isActive}
                                   onChange={(v) => set('isActive', v)}/>
@@ -442,7 +478,8 @@ export function ReportComplaintPage() {
                                 <p className="text-xs font-semibold uppercase text-ink-400">Description</p>
                                 <p className="mt-2 text-sm text-ink-700 dark:text-ink-200">{form.description}</p>
                                 <p className="mt-2 text-xs text-ink-500">Observed: {form.observedAt || 'Not specified'} ·
-                                    Affected: {form.affected} · Still active: {form.isActive ? 'Yes' : 'No'}</p>
+                                    Affected: {form.affected || 'Not sure / Prefer not to estimate'} · Still
+                                    active: {form.isActive ? 'Yes' : 'No'}</p>
                             </div>
                             <div className="rounded-xl border border-ink-100 p-4 dark:border-ink-800">
                                 <p className="text-xs font-semibold uppercase text-ink-400">Location</p>
