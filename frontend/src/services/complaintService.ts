@@ -55,10 +55,20 @@ export async function getComplaintById(
 
 
 export interface CreateComplaintRequest {
-  title: string;
-  description: string;
-  category: string;
-  location: string;
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+
+    subcategory?: string | null;
+    observedAt?: string | null;
+    affectedPeopleRange?: string | null;
+    isActive?: boolean | null;
+
+    municipality?: string | null;
+    ward?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
 }
 
 export interface CreatedComplaintResponse {

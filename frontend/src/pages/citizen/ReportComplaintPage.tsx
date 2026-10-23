@@ -142,6 +142,17 @@ export function ReportComplaintPage() {
             return;
         }
 
+        const observedDate = new Date(form.observedAt);
+
+        if (Number.isNaN(observedDate.getTime())) {
+            addToast({
+                type: 'error',
+                title: 'Invalid observation date',
+                message: 'Please select a valid date and time.',
+            });
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -151,6 +162,10 @@ export function ReportComplaintPage() {
                     description,
                     category,
                     location,
+                    subcategory: form.subcategory.trim(),
+                    observedAt: observedDate.toISOString(),
+                    affectedPeopleRange: form.affected,
+                    isActive: form.isActive,
                 },
                 accessToken
             );
@@ -163,7 +178,7 @@ export function ReportComplaintPage() {
 
             navigate(
                 `/citizen/complaints/${encodeURIComponent(createdComplaint.id)}`,
-                {replace: true}
+                { replace: true }
             );
         } catch (error: unknown) {
             addToast({
@@ -385,7 +400,6 @@ export function ReportComplaintPage() {
                                 <p className="text-xs font-semibold uppercase text-ink-400">Location</p>
                                 <p className="mt-2 text-sm text-ink-700 dark:text-ink-200">{form.address || '—'}</p>
                                 <p className="text-xs text-ink-500">{form.ward} · {form.municipality}</p>
-                                <p className="text-xs text-ink-400">{form.lat.toFixed(4)}, {form.lng.toFixed(4)}</p>
                             </div>
                             <div className="rounded-xl border border-ink-100 p-4 dark:border-ink-800">
                                 <p className="text-xs font-semibold uppercase text-ink-400">Evidence
@@ -407,10 +421,11 @@ export function ReportComplaintPage() {
                             <div
                                 className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
                                 This version saves your complaint title, description,
-                                category and full address only. Selected priority,
-                                subcategory, observation details and map coordinates
-                                are not yet saved. Evidence uploads and anonymous/public
-                                visibility settings are not supported yet.
+                                category, full address, subcategory, observed date and time,
+                                number of people affected, and whether the issue is still
+                                active. Selected priority, municipality, ward and map
+                                coordinates are not yet saved. Evidence uploads and
+                                anonymous/public visibility settings are not supported yet.
                             </div>
 
                             <Checkbox
