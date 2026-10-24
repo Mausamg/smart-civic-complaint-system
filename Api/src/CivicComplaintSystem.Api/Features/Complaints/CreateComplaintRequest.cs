@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
 
-public sealed class CreateComplaintRequest
+public sealed class CreateComplaintRequest : IValidatableObject
 {
     [Required]
     [StringLength(150)]
@@ -41,4 +41,19 @@ public sealed class CreateComplaintRequest
 
     [Range(-180.0, 180.0)]
     public double? Longitude { get; init; }
+
+
+    public IEnumerable<ValidationResult> Validate(
+        ValidationContext validationContext)
+    {
+        if (ObservedAt is { } observedAt &&
+            observedAt > DateTimeOffset.UtcNow)
+        {
+            yield return new ValidationResult(
+                "Observation date and time cannot be in the future.",
+                new[] { nameof(ObservedAt) }
+            );
+        }
+    }
+
 }
