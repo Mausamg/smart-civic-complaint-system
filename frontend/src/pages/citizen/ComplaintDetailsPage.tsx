@@ -169,6 +169,70 @@ export function ComplaintDetailsPage() {
         />
 
         <CitizenComplaintDetailsOverview complaint={complaint} />
+
+          <Card className="mt-4 p-6">
+              <h2 className="text-lg font-semibold text-ink-900 dark:text-ink-100">
+                  Incident location
+              </h2>
+
+              <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                      <dt className="text-xs text-ink-500">
+                          Municipality / Rural municipality
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium">
+                          {complaint.municipality?.trim() || 'Not provided'}
+                      </dd>
+                  </div>
+
+                  <div>
+                      <dt className="text-xs text-ink-500">
+                          Ward
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium">
+                          {complaint.ward?.trim() || 'Not provided'}
+                      </dd>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                      <dt className="text-xs text-ink-500">
+                          Full address
+                      </dt>
+                      <dd className="mt-1 text-sm font-medium">
+                          {complaint.location}
+                      </dd>
+                  </div>
+
+                  {complaint.latitude !== null &&
+                  complaint.longitude !== null ? (
+                      <div className="sm:col-span-2">
+                          <dt className="text-xs text-ink-500">
+                              Selected map coordinates
+                          </dt>
+                          <dd className="mt-1 text-sm font-medium">
+                              {complaint.latitude.toFixed(6)},{' '}
+                              {complaint.longitude.toFixed(6)}
+                          </dd>
+
+                          <a
+                              href={`https://www.openstreetmap.org/?mlat=${complaint.latitude}&mlon=${complaint.longitude}#map=17/${complaint.latitude}/${complaint.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-block text-sm font-medium text-blue-600 hover:underline"
+                          >
+                              View location on OpenStreetMap
+                          </a>
+                      </div>
+                  ) : (
+                      <div className="sm:col-span-2">
+                          <p className="text-sm text-ink-500">
+                              No map coordinates were recorded for this complaint.
+                          </p>
+                      </div>
+                  )}
+              </dl>
+          </Card>
+
       </div>
   );
 }
