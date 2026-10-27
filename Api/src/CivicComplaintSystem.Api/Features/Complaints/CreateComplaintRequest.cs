@@ -30,6 +30,7 @@ public sealed class CreateComplaintRequest : IValidatableObject
 
     public bool? IsActive { get; init; }
 
+    [Required(ErrorMessage = "Municipality or rural municipality is required.")]
     [StringLength(100)]
     public string? Municipality { get; init; }
 
@@ -54,6 +55,11 @@ public sealed class CreateComplaintRequest : IValidatableObject
                 new[] { nameof(ObservedAt) }
             );
         }
-    }
 
+        if (Latitude is null || Longitude is null)
+            yield return new ValidationResult(
+                "Please select the incident location on the map.",
+                new[] { nameof(Latitude), nameof(Longitude) }
+            );
+    }
 }
