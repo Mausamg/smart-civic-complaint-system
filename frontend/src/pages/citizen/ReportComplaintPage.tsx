@@ -45,7 +45,7 @@ interface FormState {
 const initial: FormState = {
     category: '', subcategory: '', title: '', priority: 'medium',
     description: '', observedAt: '', isActive: true, affected: '',
-    lat: null, lng: null, municipality: 'Kathmandu Metropolitan City', ward: 'Ward 7',
+    lat: null, lng: null, municipality: '', ward: '',
     street: '', address: '', anonymous: false, isPublic: true, declaration: false,
 };
 const getLocalDateTimeMax = (): string => {
@@ -55,6 +55,7 @@ const getLocalDateTimeMax = (): string => {
 
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 };
+
 export function ReportComplaintPage() {
     const {addToast, accessToken} = useApp();
     const navigate = useNavigate();
@@ -93,8 +94,23 @@ export function ReportComplaintPage() {
             }
         }
         if (s === 3) {
-            if (!form.street.trim()) e.street = 'Enter street or landmark';
-            if (!form.address.trim()) e.address = 'Enter full address';
+            if (form.lat === null || form.lng === null) {
+                e.mapLocation =
+                    'Please select the incident location on the map';
+            }
+
+            if (!form.municipality.trim()) {
+                e.municipality =
+                    'Enter the municipality or rural municipality';
+            }
+
+            if (!form.street.trim()) {
+                e.street = 'Enter street or landmark';
+            }
+
+            if (!form.address.trim()) {
+                e.address = 'Enter full address';
+            }
         }
         if (s === 5) {
             if (!form.declaration) e.declaration = 'You must accept the declaration';
@@ -109,7 +125,16 @@ export function ReportComplaintPage() {
     const back = () => setStep((s) => Math.max(1, s - 1));
 
     const submit = async () => {
-        if (submitting || !validateStep(5)) return;
+
+        if (submitting) return;
+
+        for (const requiredStep of [1, 2, 3, 5]) {
+            if (!validateStep(requiredStep)) {
+                setStep(requiredStep);
+                return;
+            }
+        }
+
 
         if (!accessToken) {
             addToast({
@@ -207,10 +232,23 @@ export function ReportComplaintPage() {
             });
             return;
         }
+        if (latitude === null || longitude === null) {
+            setStep(3);
+
+            addToast({
+                type: 'error',
+                title: 'Location required',
+                message:
+                    'Please pin the incident location on the map before submitting.',
+            });
+
+            return;
+        }
 
         setSubmitting(true);
 
         try {
+
             const createdComplaint = await createComplaint(
                 {
                     title,
@@ -223,16 +261,19 @@ export function ReportComplaintPage() {
                     affectedPeopleRange: form.affected || null,
                     isActive: form.isActive,
 
+                    municipality: form.municipality.trim(),
+                    ward: form.ward.trim() || null,
+
                     ...(latitude !== null && longitude !== null
                         ? {
                             latitude,
                             longitude,
                         }
                         : {}),
-
                 },
                 accessToken
             );
+
 
             addToast({
                 type: 'success',
@@ -361,18 +402,19 @@ export function ReportComplaintPage() {
                                 20</p>
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
-                            <Input label="Date and time observed" type="datetime-local" max={getLocalDateTimeMax()} value={form.observedAt}
+                            <Input label="Date and time observed" type="datetime-local" max={getLocalDateTimeMax()}
+                                   value={form.observedAt}
                                    onChange={(e) => set('observedAt', e.target.value)} error={errors.observedAt}/>
                             <Select
                                 label="People affected (Optional)"
                                 value={form.affected}
                                 onChange={(e) => set('affected', e.target.value)}
                                 options={[
-                                    { value: '', label: 'Not sure / Prefer not to estimate' },
-                                    { value: '1-10', label: '1–10 people' },
-                                    { value: '10-50', label: '10–50 people' },
-                                    { value: '50-100', label: '50–100 people' },
-                                    { value: '100+', label: 'More than 100 people' },
+                                    {value: '', label: 'Not sure / Prefer not to estimate'},
+                                    {value: '1-10', label: '1–10 people'},
+                                    {value: '10-50', label: '10–50 people'},
+                                    {value: '50-100', label: '50–100 people'},
+                                    {value: '100+', label: 'More than 100 people'},
                                 ]}
                             />
                         </div>
@@ -398,32 +440,63 @@ export function ReportComplaintPage() {
                             ward.
                         </p>
 
-
                         <CitizenLocationPicker
+                            accessToken={accessToken}
                             selectedLocation={
                                 form.lat !== null && form.lng !== null
                                     ? {lat: form.lat, lng: form.lng}
                                     : null
                             }
-                            onLocationSelect={({lat, lng}) =>
+                            onLocationSelect={({lat, lng}) => {
                                 setForm((f) => ({
                                     ...f,
                                     lat,
                                     lng,
+                                }));
+
+                                setErrors((prev) => {
+                                    const {mapLocation, ...remainingErrors} = prev;
+                                    return remainingErrors;
+                                });
+                            }}
+                            onLocationClear={() =>
+                                setForm((f) => ({
+                                    ...f,
+                                    lat: null,
+                                    lng: null,
                                 }))
                             }
                         />
+                        {errors.mapLocation && (
+                            <p
+                                role="alert"
+                                className="text-sm text-red-600 dark:text-red-400"
+                            >
+                                {errors.mapLocation}
+                            </p>
+                        )}
+
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <Select label="Municipality" value={form.municipality}
-                                    onChange={(e) => set('municipality', e.target.value)} options={[
-                                {value: 'Kathmandu Metropolitan City', label: 'Kathmandu Metropolitan City'},
-                                {value: 'Lalitpur Metropolitan City', label: 'Lalitpur Metropolitan City'},
-                            ]}/>
-                            <Select label="Ward" value={form.ward} onChange={(e) => set('ward', e.target.value)}
-                                    options={Array.from({length: 32}, (_, i) => ({
-                                        value: `Ward ${i + 1}`,
-                                        label: `Ward ${i + 1}`
-                                    }))}/>
+                            <Input
+                                label="Municipality / Rural municipality"
+                                required
+                                value={form.municipality}
+                                onChange={(e) =>
+                                    set('municipality', e.target.value)
+                                }
+                                placeholder="e.g. Kathmandu Metropolitan City"
+                                error={errors.municipality}
+                            />
+
+                            <Input
+                                label="Ward (if known)"
+                                value={form.ward}
+                                onChange={(e) =>
+                                    set('ward', e.target.value)
+                                }
+                                placeholder="e.g. Ward 17"
+                                error={errors.ward}
+                            />
                         </div>
                         <Input label="Street or landmark" required value={form.street}
                                onChange={(e) => set('street', e.target.value)} placeholder="e.g. Chabahil Chowk"
@@ -512,10 +585,10 @@ export function ReportComplaintPage() {
                             <div
                                 className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
                                 This version saves your complaint title, description, category, full address,
-                                subcategory, observed date and time, number of people affected, and whether the issue is
-                                still active. Latitude and longitude are also saved if you selected a map location.
-                                Selected priority, municipality and ward are not yet saved. Evidence uploads and
-                                anonymous/public visibility settings are not supported yet.
+                                subcategory, observation date and time, affected people range, issue activity status,
+                                municipality, ward, and selected map coordinates. Your requested priority is not
+                                currently saved, and evidence uploads, anonymous submission, and public visibility
+                                settings are not yet supported.
                             </div>
 
                             <Checkbox
