@@ -119,7 +119,7 @@ function AppRoutes() {
         <Route path="profile" element={<ProfileSettingsPage linkPrefix="/staff"/>}/>
         <Route path="settings" element={<ProfileSettingsPage linkPrefix="/staff"/>}/>
       </Route>
-      
+
       {/* Admin Routes */}
       <Route path="/admin" element={<RequireRole role="admin"><DashboardLayout /></RequireRole>}>
         <Route index element={<Navigate to="/admin/dashboard" replace/>}/>
