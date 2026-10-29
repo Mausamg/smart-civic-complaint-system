@@ -67,6 +67,9 @@ namespace CivicComplaintSystem.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AffectedPeopleRange")
+                        .HasColumnType("text");
+
                     b.Property<Guid?>("AssignedToUserId")
                         .HasColumnType("uuid");
 
@@ -81,15 +84,33 @@ namespace CivicComplaintSystem.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool?>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
                     b.Property<string>("Location")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Municipality")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ObservedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Subcategory")
+                        .HasColumnType("text");
 
                     b.Property<Guid>("SubmittedByUserId")
                         .HasColumnType("uuid");
@@ -100,6 +121,9 @@ namespace CivicComplaintSystem.Api.Migrations
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Ward")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

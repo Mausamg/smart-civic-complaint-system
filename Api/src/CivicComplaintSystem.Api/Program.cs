@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -11,6 +12,7 @@ using CivicComplaintSystem.Api.Features.Users;
 using CivicComplaintSystem.Api.Features.Users.Staff;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -27,6 +29,29 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddProblemDetails();
+builder.Services.AddHttpClient("Geoapify", client => { client.Timeout = TimeSpan.FromSeconds(10); });
+
+builder.Services.AddMemoryCache();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode =
+        StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("location-search", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey:
+                httpContext.User.FindFirstValue(
+                    ClaimTypes.NameIdentifier)
+                ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 2,
+                Window = TimeSpan.FromSeconds(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+});
 builder.Services.AddScoped<ComplaintQueryService>();
 builder.Services.AddScoped<ComplaintCommandService>();
 builder.Services.AddScoped<ComplaintAccessService>();
@@ -149,9 +174,14 @@ app.UseExceptionHandler();
 
 app.UseHttpsRedirection();
 
+app.UseRouting();
+
 app.UseCors("Frontend");
 
 app.UseAuthentication();
+
+app.UseRateLimiter();
+
 app.UseAuthorization();
 
 app.MapControllers();

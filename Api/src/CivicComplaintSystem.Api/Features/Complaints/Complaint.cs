@@ -21,6 +21,22 @@ public sealed class Complaint
 
     public required string Location { get; set; }
 
+    public string? Subcategory { get; set; }
+
+    public DateTime? ObservedAt { get; set; }
+
+    public string? AffectedPeopleRange { get; set; }
+
+    public bool? IsActive { get; set; }
+
+    public string? Municipality { get; set; }
+
+    public string? Ward { get; set; }
+
+    public double? Latitude { get; set; }
+
+    public double? Longitude { get; set; }
+
     public DateTime CreatedAt { get; set; }
         = DateTime.UtcNow;
 
