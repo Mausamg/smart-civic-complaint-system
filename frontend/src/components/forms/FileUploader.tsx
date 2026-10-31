@@ -3,6 +3,7 @@ import { AlertCircle,Camera,FileText,Film,ImageIcon,UploadCloud,X } from 'lucide
 import { useRef,useState,type ChangeEvent,type DragEvent } from 'react';
 
 export interface UploadedFile {
+  file: File;
   id: string;
   name: string;
   size: number;
@@ -48,6 +49,7 @@ export function FileUploader({
       }
       const isImg = f.type.startsWith('image/');
       valid.push({
+        file: f,
         id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name: f.name,
         size: f.size,
