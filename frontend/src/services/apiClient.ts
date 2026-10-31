@@ -38,6 +38,7 @@ export interface ApiRequestOptions
   extends Omit<RequestInit, 'body'> {
   token?: string;
   json?: unknown;
+  formData?: FormData;
 }
 
 export async function apiRequest<T>(
@@ -47,9 +48,14 @@ export async function apiRequest<T>(
   const {
     token,
     json,
+    formData,
     headers: customHeaders,
     ...requestOptions
   } = options;
+
+  if (json !== undefined && formData !== undefined) {
+    throw new Error('Provide either JSON or FormData, not both.');
+  }
 
   const headers = new Headers(customHeaders);
 
@@ -69,7 +75,7 @@ export async function apiRequest<T>(
       headers,
       body: json !== undefined
         ? JSON.stringify(json)
-        : undefined,
+        : formData,
     });
   } catch {
     throw new ApiError(
