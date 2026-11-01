@@ -17,6 +17,8 @@ interface FileUploaderProps {
   onRemove: (id: string) => void;
   accept?: string;
   maxSizeMB?: number;
+  maxFiles?: number;
+  imageOnly?: boolean;
   capture?: boolean;
   label?: string;
   hint?: string;
@@ -30,6 +32,8 @@ export function FileUploader({
   onRemove,
   accept = 'image/*,video/*',
   maxSizeMB = 25,
+  maxFiles = Infinity,
+  imageOnly = false,
   capture = false,
   label = 'Upload evidence',
   hint = 'Drag and drop photos or videos, or click to browse. Max 25MB per file.',
@@ -43,6 +47,33 @@ export function FileUploader({
     setError('');
     const valid: UploadedFile[] = [];
     Array.from(list).forEach((f) => {
+      if (files.length + valid.length >= maxFiles) {
+        setError(`Maximum of ${maxFiles} files allowed.`);
+        return;
+      }
+
+      if (f.size === 0) {
+        setError(`${f.name} is empty.`);
+        return;
+      }
+
+      if (imageOnly) {
+        const extension = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+        const imageTypes: Record<string, string> = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.webp': 'image/webp',
+        };
+
+        const expectedType = imageTypes[extension];
+
+        if (!expectedType || (f.type && f.type !== expectedType)) {
+          setError('Only JPEG, PNG and WebP images are allowed.');
+          return;
+        }
+      }
+
       if (f.size > maxSizeMB * 1048576) {
         setError(`${f.name} exceeds ${maxSizeMB}MB limit`);
         return;
@@ -66,7 +97,10 @@ export function FileUploader({
     processFiles(e.dataTransfer.files);
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => processFiles(e.target.files);
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    processFiles(e.target.files);
+    e.target.value = '';
+  };
 
   return (
     <div>
@@ -130,7 +164,11 @@ export function FileUploader({
                 </div>
               )}
               <button
-                onClick={(e) => { e.stopPropagation(); onRemove(f.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (f.preview) URL.revokeObjectURL(f.preview);
+                  onRemove(f.id);
+                }}
                 className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink-900/70 text-white opacity-0 transition hover:bg-error-600 group-hover:opacity-100"
                 aria-label={`Remove ${f.name}`}
               >
