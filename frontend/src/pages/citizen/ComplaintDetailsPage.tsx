@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
+import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -169,6 +170,13 @@ export function ComplaintDetailsPage() {
         />
 
         <CitizenComplaintDetailsOverview complaint={complaint} />
+
+        {accessToken && (
+          <ComplaintEvidenceSection
+            complaintId={complaint.id}
+            accessToken={accessToken}
+          />
+        )}
 
           <Card className="mt-4 p-6">
               <h2 className="text-lg font-semibold text-ink-900 dark:text-ink-100">

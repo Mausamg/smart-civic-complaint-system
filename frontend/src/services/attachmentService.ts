@@ -1,4 +1,4 @@
-import { apiRequest } from './apiClient';
+import { apiBlobRequest, apiRequest } from './apiClient';
 
 export interface ComplaintAttachmentResponse {
   id: string;
@@ -25,5 +25,34 @@ export async function uploadComplaintAttachment(
       token,
       formData,
     }
+  );
+}
+
+
+export async function getComplaintAttachments(
+  complaintId: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<ComplaintAttachmentResponse[]> {
+  return apiRequest<ComplaintAttachmentResponse[]>(
+    `/api/complaints/${encodeURIComponent(complaintId)}/attachments`,
+    {
+      method: 'GET',
+      token,
+      signal,
+    }
+  );
+}
+
+export async function downloadComplaintAttachment(
+  complaintId: string,
+  attachmentId: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  return apiBlobRequest(
+    `/api/complaints/${encodeURIComponent(complaintId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    token,
+    signal
   );
 }

@@ -1,6 +1,6 @@
 import { cn } from '@/utils/format';
 import { AlertCircle,Camera,FileText,Film,ImageIcon,UploadCloud,X } from 'lucide-react';
-import { useRef,useState,type ChangeEvent,type DragEvent } from 'react';
+import { useEffect,useRef,useState,type ChangeEvent,type DragEvent } from 'react';
 
 export interface UploadedFile {
   file: File;
@@ -42,63 +42,149 @@ export function FileUploader({
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const processFiles = (list: FileList | null) => {
+  const isProcessingRef = useRef(false);
+  const selectedCountRef = useRef(files.length);
+
+  useEffect(() => {
+    selectedCountRef.current = files.length;
+  }, [files.length]);
+
+  const processFiles = async (list: FileList | null) => {
     if (!list) return;
-    setError('');
-    const valid: UploadedFile[] = [];
-    Array.from(list).forEach((f) => {
-      if (files.length + valid.length >= maxFiles) {
-        setError(`Maximum of ${maxFiles} files allowed.`);
-        return;
-      }
 
-      if (f.size === 0) {
-        setError(`${f.name} is empty.`);
-        return;
-      }
+    if (isProcessingRef.current) {
+      setError('Images are still being processed. Please try again.');
+      return;
+    }
 
-      if (imageOnly) {
-        const extension = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
-        const imageTypes: Record<string, string> = {
-          '.jpg': 'image/jpeg',
-          '.jpeg': 'image/jpeg',
-          '.png': 'image/png',
-          '.webp': 'image/webp',
-        };
+    isProcessingRef.current = true;
 
-        const expectedType = imageTypes[extension];
+    try {
 
-        if (!expectedType || (f.type && f.type !== expectedType)) {
-          setError('Only JPEG, PNG and WebP images are allowed.');
-          return;
+        const selectedFiles = Array.from(list);
+        const valid: UploadedFile[] = [];
+        setError('');
+
+        for (const f of selectedFiles) {
+          if (selectedCountRef.current + valid.length >= maxFiles) {
+            setError(`Maximum of ${maxFiles} files allowed.`);
+            break;
+          }
+
+          if (f.size === 0) {
+            setError(`${f.name} is empty.`);
+            continue;
+          }
+
+          if (f.size > maxSizeMB * 1048576) {
+            setError(`${f.name} exceeds ${maxSizeMB}MB limit.`);
+            continue;
+          }
+
+          if (imageOnly) {
+            const extension =
+              f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+
+            const imageTypes: Record<string, string> = {
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.png': 'image/png',
+              '.webp': 'image/webp',
+            };
+
+            const expectedType = imageTypes[extension];
+
+            if (!expectedType || (f.type && f.type !== expectedType)) {
+              setError('Only JPEG, PNG and WebP images are allowed.');
+              continue;
+            }
+
+            let header: Uint8Array;
+
+            try {
+              header = new Uint8Array(
+                await f.slice(0, 12).arrayBuffer()
+              );
+            } catch {
+              setError(`Unable to read ${f.name}.`);
+              continue;
+            }
+
+            const isJpeg =
+              header.length >= 3 &&
+              header[0] === 0xff &&
+              header[1] === 0xd8 &&
+              header[2] === 0xff;
+
+            const isPng =
+              header.length >= 8 &&
+              [137, 80, 78, 71, 13, 10, 26, 10]
+                .every((byte, index) => header[index] === byte);
+
+            const isWebP =
+              header.length >= 12 &&
+              String.fromCharCode(...header.slice(0, 4)) === 'RIFF' &&
+              String.fromCharCode(...header.slice(8, 12)) === 'WEBP';
+
+            const matchesExtension =
+              (['.jpg', '.jpeg'].includes(extension) && isJpeg) ||
+              (extension === '.png' && isPng) ||
+              (extension === '.webp' && isWebP);
+
+            if (!matchesExtension) {
+              setError(
+                `${f.name}: image content does not match its extension.`
+              );
+              continue;
+            }
+
+            try {
+              const bitmap = await createImageBitmap(f);
+
+              const exceedsPixelLimit =
+                bitmap.width * bitmap.height > 40_000_000;
+
+              bitmap.close();
+
+              if (exceedsPixelLimit) {
+                setError(`${f.name} exceeds the 40-megapixel limit.`);
+                continue;
+              }
+            } catch {
+              setError(`${f.name} is not a valid readable image.`);
+              continue;
+            }
+          }
+
+          valid.push({
+            file: f,
+            id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            preview: f.type.startsWith('image/')
+              ? URL.createObjectURL(f)
+              : undefined,
+          });
         }
-      }
 
-      if (f.size > maxSizeMB * 1048576) {
-        setError(`${f.name} exceeds ${maxSizeMB}MB limit`);
-        return;
-      }
-      const isImg = f.type.startsWith('image/');
-      valid.push({
-        file: f,
-        id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        preview: isImg ? URL.createObjectURL(f) : undefined,
-      });
-    });
-    if (valid.length) onAdd(valid);
+        if (valid.length > 0) {
+          selectedCountRef.current += valid.length;
+          onAdd(valid);
+        }
+    } finally {
+      isProcessingRef.current = false;
+    }
   };
 
   const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    processFiles(e.dataTransfer.files);
+    void processFiles(e.dataTransfer.files);
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    processFiles(e.target.files);
+    void processFiles(e.target.files);
     e.target.value = '';
   };
 
