@@ -132,7 +132,8 @@ public sealed class ComplaintCommandService(
         Complaint complaint,
         ComplaintStatus newStatus,
         Guid changedByUserId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? note = null)
     {
         var oldStatus = complaint.Status;
         var now = DateTime.UtcNow;
@@ -148,7 +149,7 @@ public sealed class ComplaintCommandService(
             NewStatus = newStatus,
             ChangedByUserId = changedByUserId,
             ChangedAtUtc = now,
-            Note = null
+            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
         };
 
         context.ComplaintStatusHistories.Add(
