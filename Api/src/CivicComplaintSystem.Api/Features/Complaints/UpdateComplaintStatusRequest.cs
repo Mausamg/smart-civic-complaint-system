@@ -7,4 +7,7 @@ public sealed class UpdateComplaintStatusRequest
     [Required]
     [EnumDataType(typeof(ComplaintStatus))]
     public ComplaintStatus? Status { get; init; }
+
+    [StringLength(500)]
+    public string? Note { get; init; }
 }

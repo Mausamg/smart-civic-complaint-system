@@ -734,7 +734,8 @@ public sealed class ComplaintsController(
             complaint,
             newStatus,
             currentUserId,
-            cancellationToken);
+            cancellationToken,
+            request.Note);
 
         await notificationService.CreateAsync(
             complaint.SubmittedByUserId,
