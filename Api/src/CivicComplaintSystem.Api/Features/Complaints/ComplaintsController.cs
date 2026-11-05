@@ -1206,9 +1206,7 @@ public sealed class ComplaintsController(
             });
 
         var filePath = Path.Combine(
-            "wwwroot",
-            "uploads",
-            "complaints",
+            complaintAttachmentService.GetUploadsDirectory(),
             attachment.StoredFileName);
 
         if (!System.IO.File.Exists(filePath))

@@ -1,14 +1,25 @@
 using CivicComplaintSystem.Api.Data;
+using ImageMagick;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace CivicComplaintSystem.Api.Features.Complaints.Attachments;
 
 public sealed class ComplaintAttachmentService(
     AppDbContext context,
-    IWebHostEnvironment environment)
+    IWebHostEnvironment environment,
+    ILogger<ComplaintAttachmentService> logger)
 {
     private const long MaxFileSizeBytes =
         5 * 1024 * 1024;
+
+    public string GetUploadsDirectory()
+    {
+        return Path.Combine(
+            environment.ContentRootPath,
+            "private-uploads",
+            "complaints");
+    }
 
     public async Task<AttachmentUploadResult> UploadAsync(
         Guid complaintId,
@@ -41,6 +52,39 @@ public sealed class ComplaintAttachmentService(
                     "File content does not match the image extension."
             };
 
+        // Serialize uploads to this complaint across all API instances.
+        await using var uploadTransaction =
+            await context.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        await using (var lockCommand =
+            context.Database.GetDbConnection().CreateCommand())
+        {
+            lockCommand.Transaction =
+                uploadTransaction.GetDbTransaction();
+
+            lockCommand.CommandText =
+                @"SELECT 1 FROM ""Complaints""
+                  WHERE ""Id"" = @complaintId FOR UPDATE";
+
+            var parameter = lockCommand.CreateParameter();
+            parameter.ParameterName = "complaintId";
+            parameter.Value = complaintId;
+            lockCommand.Parameters.Add(parameter);
+
+            var exists =
+                await lockCommand.ExecuteScalarAsync(
+                    cancellationToken);
+
+            if (exists is null)
+            {
+                return new AttachmentUploadResult
+                {
+                    Error = "Complaint not found."
+                };
+            }
+        }
+
         var attachmentCount =
             await context.ComplaintAttachments
                 .CountAsync(
@@ -53,10 +97,7 @@ public sealed class ComplaintAttachmentService(
                 Error = "Maximum of 5 attachments allowed per complaint."
             };
 
-        var uploadsFolder = Path.Combine(
-            environment.WebRootPath ?? "wwwroot",
-            "uploads",
-            "complaints");
+        var uploadsFolder = GetUploadsDirectory();
 
         Directory.CreateDirectory(uploadsFolder);
         var storedFileName =
@@ -67,47 +108,75 @@ public sealed class ComplaintAttachmentService(
                 uploadsFolder,
                 storedFileName);
 
-        await using (var stream =
-                     new FileStream(
-                         filePath,
-                         FileMode.Create))
+        var persisted = false;
+
+        try
         {
-            await file.CopyToAsync(
-                stream,
+            await using (var stream =
+                         new FileStream(
+                             filePath,
+                             FileMode.CreateNew))
+            {
+                await file.CopyToAsync(
+                    stream,
+                    cancellationToken);
+            }
+
+            var contentType =
+                extension switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".png" => "image/png",
+                    ".webp" => "image/webp",
+                    _ => "application/octet-stream"
+                };
+            var attachment =
+                new ComplaintAttachment
+                {
+                    Id = Guid.NewGuid(),
+                    ComplaintId = complaintId,
+                    FileName = file.FileName,
+                    StoredFileName = storedFileName,
+                    ContentType = contentType,
+                    FileSize = file.Length,
+                    UploadedByUserId = userId,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+
+            context.ComplaintAttachments.Add(
+                attachment);
+
+            await context.SaveChangesAsync(
                 cancellationToken);
+
+            await uploadTransaction.CommitAsync(
+                cancellationToken);
+
+            persisted = true;
+
+            return new AttachmentUploadResult
+            {
+                Attachment = attachment
+            };
         }
-
-        var contentType =
-            extension switch
-            {
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".png" => "image/png",
-                ".webp" => "image/webp",
-                _ => "application/octet-stream"
-            };
-        var attachment =
-            new ComplaintAttachment
-            {
-                Id = Guid.NewGuid(),
-                ComplaintId = complaintId,
-                FileName = file.FileName,
-                StoredFileName = storedFileName,
-                ContentType = contentType,
-                FileSize = file.Length,
-                UploadedByUserId = userId,
-                CreatedAtUtc = DateTime.UtcNow
-            };
-
-        context.ComplaintAttachments.Add(
-            attachment);
-
-        await context.SaveChangesAsync(
-            cancellationToken);
-
-        return new AttachmentUploadResult
+        finally
         {
-            Attachment = attachment
-        };
+            if (!persisted)
+            {
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch (Exception exception) when (
+                    exception is IOException or UnauthorizedAccessException)
+                {
+                    logger.LogWarning(
+                        exception,
+                        "Unable to remove incomplete evidence file {FilePath}",
+                        filePath);
+                }
+            }
+        }
     }
 
 
@@ -116,55 +185,66 @@ public sealed class ComplaintAttachmentService(
         string extension,
         CancellationToken cancellationToken)
     {
-        var buffer = new byte[12];
+        const long maxFileBytes = 5 * 1024 * 1024;
+        const ulong maxPixels = 40_000_000;
 
-        await using var stream =
-            file.OpenReadStream();
+        var expectedFormat = extension switch
+        {
+            ".jpg" or ".jpeg" => MagickFormat.Jpeg,
+            ".png" => MagickFormat.Png,
+            ".webp" => MagickFormat.WebP,
+            _ => MagickFormat.Unknown
+        };
 
-        var bytesRead =
-            await stream.ReadAsync(
-                buffer.AsMemory(
-                    0,
-                    buffer.Length),
+        if (expectedFormat == MagickFormat.Unknown ||
+            file.Length == 0 ||
+            file.Length > maxFileBytes)
+        {
+            return false;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            await using var input = file.OpenReadStream();
+
+            using var buffer = new MemoryStream();
+
+            await input.CopyToAsync(
+                buffer,
                 cancellationToken);
 
-        if (bytesRead < 4)
-            return false;
+            if (buffer.Length == 0 ||
+                buffer.Length > maxFileBytes)
+                return false;
 
-        var isJpeg =
-            buffer[0] == 0xFF &&
-            buffer[1] == 0xD8 &&
-            buffer[2] == 0xFF;
+            var bytes = buffer.ToArray();
 
-        var isPng =
-            bytesRead >= 8 &&
-            buffer[0] == 0x89 &&
-            buffer[1] == 0x50 &&
-            buffer[2] == 0x4E &&
-            buffer[3] == 0x47 &&
-            buffer[4] == 0x0D &&
-            buffer[5] == 0x0A &&
-            buffer[6] == 0x1A &&
-            buffer[7] == 0x0A;
+            var info = new MagickImageInfo();
+            info.Read(bytes);
 
-        var isWebP =
-            bytesRead >= 12 &&
-            buffer[0] == 0x52 &&
-            buffer[1] == 0x49 &&
-            buffer[2] == 0x46 &&
-            buffer[3] == 0x46 &&
-            buffer[8] == 0x57 &&
-            buffer[9] == 0x45 &&
-            buffer[10] == 0x42 &&
-            buffer[11] == 0x50;
+            if (info.Format != expectedFormat ||
+                info.Width == 0 ||
+                info.Height == 0 ||
+                (ulong)info.Width * info.Height > maxPixels)
+            {
+                return false;
+            }
 
-        return extension switch
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using var image = new MagickImage(bytes);
+
+            return image.Format == expectedFormat &&
+                   image.Width > 0 &&
+                   image.Height > 0 &&
+                   (ulong)image.Width * image.Height <= maxPixels;
+        }
+        catch (MagickException)
         {
-            ".jpg" or ".jpeg" => isJpeg,
-            ".png" => isPng,
-            ".webp" => isWebP,
-            _ => false
-        };
+            return false;
+        }
     }
 
 

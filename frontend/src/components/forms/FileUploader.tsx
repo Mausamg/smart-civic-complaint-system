@@ -1,8 +1,9 @@
 import { cn } from '@/utils/format';
 import { AlertCircle,Camera,FileText,Film,ImageIcon,UploadCloud,X } from 'lucide-react';
-import { useRef,useState,type ChangeEvent,type DragEvent } from 'react';
+import { useEffect,useRef,useState,type ChangeEvent,type DragEvent } from 'react';
 
 export interface UploadedFile {
+  file: File;
   id: string;
   name: string;
   size: number;
@@ -16,6 +17,8 @@ interface FileUploaderProps {
   onRemove: (id: string) => void;
   accept?: string;
   maxSizeMB?: number;
+  maxFiles?: number;
+  imageOnly?: boolean;
   capture?: boolean;
   label?: string;
   hint?: string;
@@ -29,6 +32,8 @@ export function FileUploader({
   onRemove,
   accept = 'image/*,video/*',
   maxSizeMB = 25,
+  maxFiles = Infinity,
+  imageOnly = false,
   capture = false,
   label = 'Upload evidence',
   hint = 'Drag and drop photos or videos, or click to browse. Max 25MB per file.',
@@ -37,34 +42,151 @@ export function FileUploader({
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const processFiles = (list: FileList | null) => {
+  const isProcessingRef = useRef(false);
+  const selectedCountRef = useRef(files.length);
+
+  useEffect(() => {
+    selectedCountRef.current = files.length;
+  }, [files.length]);
+
+  const processFiles = async (list: FileList | null) => {
     if (!list) return;
-    setError('');
-    const valid: UploadedFile[] = [];
-    Array.from(list).forEach((f) => {
-      if (f.size > maxSizeMB * 1048576) {
-        setError(`${f.name} exceeds ${maxSizeMB}MB limit`);
-        return;
-      }
-      const isImg = f.type.startsWith('image/');
-      valid.push({
-        id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        preview: isImg ? URL.createObjectURL(f) : undefined,
-      });
-    });
-    if (valid.length) onAdd(valid);
+
+    if (isProcessingRef.current) {
+      setError('Images are still being processed. Please try again.');
+      return;
+    }
+
+    isProcessingRef.current = true;
+
+    try {
+
+        const selectedFiles = Array.from(list);
+        const valid: UploadedFile[] = [];
+        setError('');
+
+        for (const f of selectedFiles) {
+          if (selectedCountRef.current + valid.length >= maxFiles) {
+            setError(`Maximum of ${maxFiles} files allowed.`);
+            break;
+          }
+
+          if (f.size === 0) {
+            setError(`${f.name} is empty.`);
+            continue;
+          }
+
+          if (f.size > maxSizeMB * 1048576) {
+            setError(`${f.name} exceeds ${maxSizeMB}MB limit.`);
+            continue;
+          }
+
+          if (imageOnly) {
+            const extension =
+              f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+
+            const imageTypes: Record<string, string> = {
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.png': 'image/png',
+              '.webp': 'image/webp',
+            };
+
+            const expectedType = imageTypes[extension];
+
+            if (!expectedType || (f.type && f.type !== expectedType)) {
+              setError('Only JPEG, PNG and WebP images are allowed.');
+              continue;
+            }
+
+            let header: Uint8Array;
+
+            try {
+              header = new Uint8Array(
+                await f.slice(0, 12).arrayBuffer()
+              );
+            } catch {
+              setError(`Unable to read ${f.name}.`);
+              continue;
+            }
+
+            const isJpeg =
+              header.length >= 3 &&
+              header[0] === 0xff &&
+              header[1] === 0xd8 &&
+              header[2] === 0xff;
+
+            const isPng =
+              header.length >= 8 &&
+              [137, 80, 78, 71, 13, 10, 26, 10]
+                .every((byte, index) => header[index] === byte);
+
+            const isWebP =
+              header.length >= 12 &&
+              String.fromCharCode(...header.slice(0, 4)) === 'RIFF' &&
+              String.fromCharCode(...header.slice(8, 12)) === 'WEBP';
+
+            const matchesExtension =
+              (['.jpg', '.jpeg'].includes(extension) && isJpeg) ||
+              (extension === '.png' && isPng) ||
+              (extension === '.webp' && isWebP);
+
+            if (!matchesExtension) {
+              setError(
+                `${f.name}: image content does not match its extension.`
+              );
+              continue;
+            }
+
+            try {
+              const bitmap = await createImageBitmap(f);
+
+              const exceedsPixelLimit =
+                bitmap.width * bitmap.height > 40_000_000;
+
+              bitmap.close();
+
+              if (exceedsPixelLimit) {
+                setError(`${f.name} exceeds the 40-megapixel limit.`);
+                continue;
+              }
+            } catch {
+              setError(`${f.name} is not a valid readable image.`);
+              continue;
+            }
+          }
+
+          valid.push({
+            file: f,
+            id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            preview: f.type.startsWith('image/')
+              ? URL.createObjectURL(f)
+              : undefined,
+          });
+        }
+
+        if (valid.length > 0) {
+          selectedCountRef.current += valid.length;
+          onAdd(valid);
+        }
+    } finally {
+      isProcessingRef.current = false;
+    }
   };
 
   const handleDrop = (e: DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    processFiles(e.dataTransfer.files);
+    void processFiles(e.dataTransfer.files);
   };
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => processFiles(e.target.files);
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    void processFiles(e.target.files);
+    e.target.value = '';
+  };
 
   return (
     <div>
@@ -128,7 +250,11 @@ export function FileUploader({
                 </div>
               )}
               <button
-                onClick={(e) => { e.stopPropagation(); onRemove(f.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (f.preview) URL.revokeObjectURL(f.preview);
+                  onRemove(f.id);
+                }}
                 className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink-900/70 text-white opacity-0 transition hover:bg-error-600 group-hover:opacity-100"
                 aria-label={`Remove ${f.name}`}
               >

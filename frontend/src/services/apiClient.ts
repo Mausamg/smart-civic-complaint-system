@@ -38,6 +38,7 @@ export interface ApiRequestOptions
   extends Omit<RequestInit, 'body'> {
   token?: string;
   json?: unknown;
+  formData?: FormData;
 }
 
 export async function apiRequest<T>(
@@ -47,9 +48,14 @@ export async function apiRequest<T>(
   const {
     token,
     json,
+    formData,
     headers: customHeaders,
     ...requestOptions
   } = options;
+
+  if (json !== undefined && formData !== undefined) {
+    throw new Error('Provide either JSON or FormData, not both.');
+  }
 
   const headers = new Headers(customHeaders);
 
@@ -69,7 +75,7 @@ export async function apiRequest<T>(
       headers,
       body: json !== undefined
         ? JSON.stringify(json)
-        : undefined,
+        : formData,
     });
   } catch {
     throw new ApiError(
@@ -118,4 +124,56 @@ export async function apiRequest<T>(
   }
 
   return data as T;
+}
+
+
+/**
+ * Download protected binary content using the same JWT
+ * authentication and 401 handling as JSON requests.
+ */
+export async function apiBlobRequest(
+  endpoint: string,
+  token: string,
+  signal?: AbortSignal
+): Promise<Blob> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+
+    throw new ApiError(
+      'Unable to connect to the server.',
+      0
+    );
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      unauthorizedHandler?.(token);
+    }
+
+    const data: unknown = await response.json().catch(() => null);
+
+    const errorData =
+      data && typeof data === 'object'
+        ? data as Record<string, unknown>
+        : null;
+
+    const message =
+      typeof errorData?.message === 'string'
+        ? errorData.message
+        : `Unable to download attachment (${response.status}).`;
+
+    throw new ApiError(message, response.status);
+  }
+
+  return response.blob();
 }

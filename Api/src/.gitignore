@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 *.swp
 
 CivicComplaintSystem.Api/wwwroot/uploads/
+
+# Private complaint evidence storage
+CivicComplaintSystem.Api/private-uploads/

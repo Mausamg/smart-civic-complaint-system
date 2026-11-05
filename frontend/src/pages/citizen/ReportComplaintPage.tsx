@@ -1,4 +1,5 @@
 import {createComplaint} from '@/services/complaintService';
+import {uploadComplaintAttachment} from '@/services/attachmentService';
 import {FileUploader, type UploadedFile} from '@/components/forms/FileUploader';
 import {CitizenLocationPicker} from '@/components/maps/CitizenLocationPicker';
 import {Button} from '@/components/ui/Button';
@@ -11,7 +12,7 @@ import {categoryConfig, categoryOptions, priorityConfig, priorityOptions, subcat
 import type {ComplaintCategory, Priority} from '@/types';
 import {cn} from '@/utils/format';
 import {AlertTriangle, Check, ChevronLeft, ChevronRight, FileText, MapPin, Send,} from 'lucide-react';
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 
 const steps = [
@@ -62,6 +63,19 @@ export function ReportComplaintPage() {
     const [step, setStep] = useState(1);
     const [form, setForm] = useState<FormState>(initial);
     const [files, setFiles] = useState<UploadedFile[]>([]);
+    const filesRef = useRef<UploadedFile[]>([]);
+
+    useEffect(() => {
+        filesRef.current = files;
+    }, [files]);
+
+    useEffect(() => {
+        return () => {
+            filesRef.current.forEach((item) => {
+                if (item.preview) URL.revokeObjectURL(item.preview);
+            });
+        };
+    }, []);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
 
@@ -141,16 +155,6 @@ export function ReportComplaintPage() {
                 type: 'error',
                 title: 'Sign in required',
                 message: 'Please sign in as a citizen to submit a complaint.',
-            });
-            return;
-        }
-
-        if (files.length > 0) {
-            addToast({
-                type: 'error',
-                title: 'Evidence upload not available yet',
-                message:
-                    'Please remove attached files before submitting. Evidence uploads will be integrated separately.',
             });
             return;
         }
@@ -275,10 +279,32 @@ export function ReportComplaintPage() {
             );
 
 
+            let failedUploads = 0;
+
+            for (const selected of files) {
+                try {
+                    await uploadComplaintAttachment(
+                        createdComplaint.id,
+                        selected.file,
+                        accessToken
+                    );
+                } catch {
+                    failedUploads += 1;
+                }
+            }
+
+            const successfulUploads = files.length - failedUploads;
+
             addToast({
-                type: 'success',
-                title: 'Complaint submitted',
-                message: 'Your complaint has been saved successfully.',
+                type: failedUploads > 0 ? 'error' : 'success',
+                title: failedUploads > 0
+                    ? 'Complaint saved; evidence upload incomplete'
+                    : 'Complaint submitted',
+                message: failedUploads > 0
+                    ? `Your complaint was saved, but ${failedUploads} of ${files.length} photos could not be uploaded. Do not submit the complaint again.`
+                    : successfulUploads > 0
+                        ? `Your complaint and ${successfulUploads} photos were saved successfully.`
+                        : 'Your complaint has been saved successfully.',
             });
 
             navigate(
@@ -519,13 +545,22 @@ export function ReportComplaintPage() {
                         <div>
                             <h2 className="text-lg font-semibold text-ink-900 dark:text-ink-100">Upload evidence</h2>
                             <p className="mt-1 text-sm text-ink-500">
-                                Evidence uploads are not available yet.
-                                Please submit your complaint without attachments.
+                                Add up to 5 photos as evidence.
+                                Supported formats: JPEG, PNG and WebP, up to 5 MB each.
                             </p>
                         </div>
-                        <FileUploader files={files} onAdd={(f) => setFiles((p) => [...p, ...f])}
-                                      onRemove={(id) => setFiles((p) => p.filter((x) => x.id !== id))} capture label=""
-                                      hint="Drag and drop photos or videos, or click to browse. Max 25MB per file."/>
+                        <FileUploader
+                            files={files}
+                            onAdd={(newFiles) => setFiles((previous) => [...previous, ...newFiles])}
+                            onRemove={(id) => setFiles((previous) => previous.filter((item) => item.id !== id))}
+                            accept=".jpg,.jpeg,.png,.webp"
+                            maxSizeMB={5}
+                            maxFiles={5}
+                            imageOnly
+                            capture
+                            label=""
+                            hint="JPEG, PNG or WebP images only. Maximum 5 photos, 5 MB each."
+                        />
                     </div>
                 )}
 
@@ -587,8 +622,7 @@ export function ReportComplaintPage() {
                                 This version saves your complaint title, description, category, full address,
                                 subcategory, observation date and time, affected people range, issue activity status,
                                 municipality, ward, and selected map coordinates. Your requested priority is not
-                                currently saved, and evidence uploads, anonymous submission, and public visibility
-                                settings are not yet supported.
+                                currently saved. Anonymous submission and public visibility settings are not yet supported.
                             </div>
 
                             <Checkbox
