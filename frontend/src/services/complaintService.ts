@@ -102,3 +102,94 @@ export async function createComplaint(
     }
   );
 }
+
+
+/**
+ * Retrieve active complaints assigned to the
+ * currently authenticated Staff user.
+ *
+ * The backend determines the staff identity
+ * from the validated JWT.
+ */
+export async function getAssignedComplaints(
+  accessToken: string
+): Promise<ComplaintApiResponse[]> {
+  return apiRequest<ComplaintApiResponse[]>(
+    '/api/complaints/assigned-to-me',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
+/**
+ * Statuses available for staff status-management requests.
+ * The backend enforces valid transitions and assignment permissions.
+ */
+export type StaffStatusUpdate =
+  | 'UnderReview'
+  | 'InProgress'
+  | 'Resolved'
+  | 'Rejected';
+
+export interface UpdateComplaintStatusResponse {
+  id: string;
+  status: string;
+  updatedAt: string | null;
+}
+
+/**
+ * Update a complaint's status using the authenticated
+ * staff member's JWT.
+ *
+ * Notes are citizen-visible and limited to 500 characters.
+ */
+export async function updateComplaintStatus(
+  complaintId: string,
+  status: StaffStatusUpdate,
+  accessToken: string,
+  note?: string
+): Promise<UpdateComplaintStatusResponse> {
+  return apiRequest<UpdateComplaintStatusResponse>(
+    `/api/complaints/${encodeURIComponent(complaintId)}/status`,
+    {
+      method: 'PATCH',
+      token: accessToken,
+      json: {
+        status,
+        note: note?.trim() || null,
+      },
+    }
+  );
+}
+
+/**
+ * A single complaint status change recorded by the backend.
+ */
+export interface ComplaintStatusHistoryResponse {
+  id: string;
+  oldStatus: string;
+  newStatus: string;
+  changedByUserId: string;
+  changedByName: string;
+  changedAtUtc: string;
+  note: string | null;
+}
+
+/**
+ * Retrieve the history of status changes
+ * for a complaint accessible to the authenticated user.
+ */
+export async function getComplaintStatusHistory(
+  complaintId: string,
+  accessToken: string
+): Promise<ComplaintStatusHistoryResponse[]> {
+  return apiRequest<ComplaintStatusHistoryResponse[]>(
+    `/api/complaints/${encodeURIComponent(complaintId)}/history`,
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
