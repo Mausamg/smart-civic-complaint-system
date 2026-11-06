@@ -1,3 +1,7 @@
+import {
+  getAssignedComplaints,
+  type ComplaintApiResponse,
+} from '@/services/complaintService';
 import { ComplaintCard } from '@/components/complaints/ComplaintCard';
 import { EvidenceGallery } from '@/components/complaints/EvidenceGallery';
 import { Timeline } from '@/components/complaints/Timeline';
@@ -27,20 +31,137 @@ import {
   Send,
   X
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link,useParams } from 'react-router-dom';
 
 export function StaffAssignedPage() {
-  const { user } = useApp();
-  const assigned = complaints.filter((c) => c.assignedStaff === user?.name);
+  const { accessToken } = useApp();
+
+  const [assigned, setAssigned] = useState<ComplaintApiResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!accessToken) {
+      setAssigned([]);
+      setError('Please sign in as a staff member.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    getAssignedComplaints(accessToken)
+      .then((data) => {
+        if (!cancelled) setAssigned(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setAssigned([]);
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Unable to load assigned complaints.'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, retryCount]);
+
   return (
     <div>
-      <PageHeader title="Assigned Complaints" subtitle={`${assigned.length} complaints assigned to you.`} breadcrumbs={[{ label: 'Dashboard', to: '/staff/dashboard' }, { label: 'Assigned' }]} />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {assigned.map((c) => (
-          <ComplaintCard key={c.id} complaint={c} linkTo={`/staff/complaints/${c.id}`} showCitizen />
-        ))}
-      </div>
+      <PageHeader
+        title="Assigned Complaints"
+        subtitle={
+          loading
+            ? 'Loading assigned complaints...'
+            : `${assigned.length} active complaints assigned to you.`
+        }
+        breadcrumbs={[
+          { label: 'Dashboard', to: '/staff/dashboard' },
+          { label: 'Assigned' }
+        ]}
+      />
+
+      {loading ? (
+        <p role="status" className="py-8 text-center text-ink-500">
+          Loading assigned complaints...
+        </p>
+      ) : error ? (
+        <EmptyState
+          icon="AlertTriangle"
+          title="Unable to load complaints"
+          description={error}
+          action={
+            <Button onClick={() => setRetryCount((count) => count + 1)}>
+              Try again
+            </Button>
+          }
+        />
+      ) : assigned.length === 0 ? (
+        <EmptyState
+          icon="Inbox"
+          title="No active assigned complaints"
+          description="Your assigned complaint queue is currently empty."
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {assigned.map((complaint) => (
+            <Link
+              key={complaint.id}
+              to={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
+              className="block rounded-2xl focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <Card hover className="h-full p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-primary-600">
+                    {complaint.category}
+                  </span>
+                  <span className="text-xs font-medium text-ink-500">
+                    {complaint.status}
+                  </span>
+                </div>
+
+                <p className="mt-3 text-xs text-ink-400">
+                  ID: {complaint.id.slice(0, 8)}
+                </p>
+
+                <h3 className="mt-1 text-sm font-semibold text-ink-900 dark:text-ink-100">
+                  {complaint.title}
+                </h3>
+
+                <p className="mt-2 line-clamp-2 text-xs text-ink-500">
+                  {complaint.description}
+                </p>
+
+                <div className="mt-4 space-y-2 text-xs text-ink-500">
+                  <p>Location: {complaint.location}</p>
+                  <p>Submitted: {formatDate(complaint.createdAt)}</p>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3 dark:border-ink-800">
+                  <span className="text-xs font-medium">
+                    Priority: {complaint.priority}
+                  </span>
+                  <span className="text-xs text-ink-400">
+                    {timeAgo(complaint.updatedAt ?? complaint.createdAt)}
+                  </span>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
