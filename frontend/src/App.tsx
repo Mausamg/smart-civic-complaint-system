@@ -40,6 +40,7 @@ import {
 } from "./pages/staff/StaffComplaintPage";
 import { StaffDashboard } from "./pages/staff/StaffDashboard";
 import { StaffComplaintDetailsPage } from "./pages/staff/StaffComplaintDetailsPage";
+import { StaffMapPage } from "./pages/staff/StaffMapPage";
 
 // Admin Pages
 import { AdminComplaintsPage } from "./pages/admin/AdminComplaintsPage";
@@ -113,7 +114,7 @@ function AppRoutes() {
         <Route path="assigned" element={<StaffAssignedPage/>}/>
         <Route path="queue" element={<StaffAssignedPage/>}/>
         <Route path="complaints/:id" element={<StaffComplaintDetailsPage/>}/>
-        <Route path="map" element={<CitizenMapPage/>}/>
+        <Route path="map" element={<StaffMapPage/>}/>
         <Route path="messages" element={<NotificationsPage linkPrefix="/staff"/>}/>
         <Route path="notifications" element={<NotificationsPage linkPrefix="/staff"/>}/>
         <Route path="reports" element={<AnalyticsPage/>}/>
