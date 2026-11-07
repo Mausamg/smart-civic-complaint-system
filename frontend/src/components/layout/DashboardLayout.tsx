@@ -1,5 +1,10 @@
 import { useApp } from '@/context/AppContext';
 import { notifications as allNotifications } from '@/data/mockData';
+import {
+  getMyNotifications,
+  NOTIFICATIONS_CHANGED_EVENT,
+  type NotificationApiResponse,
+} from '@/services/notificationService';
 import type { UserRole } from '@/types';
 import { cn,timeAgo } from '@/utils/format';
 import {
@@ -23,7 +28,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useState,type ReactNode } from 'react';
+import { useEffect, useState,type ReactNode } from 'react';
 import { Link,NavLink,Outlet,useLocation,useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 
@@ -151,17 +156,78 @@ const mobileNavByRole: Record<UserRole, NavItem[]> = {
 };
 
 export function DashboardLayout({ children }: { children?: ReactNode }) {
-  const { user, role, logout, theme, toggleTheme } = useApp();
+  const { user, role, logout, theme, toggleTheme, accessToken } = useApp();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+
+  const [staffNotifications, setStaffNotifications] =
+    useState<NotificationApiResponse[]>([]);
+
   const location = useLocation();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (role !== 'staff' || !accessToken) {
+      setStaffNotifications([]);
+      return;
+    }
+
+    let cancelled = false;
+    let latestRequest = 0;
+
+    const refreshStaffNotifications = () => {
+      const requestId = ++latestRequest;
+
+      getMyNotifications(accessToken)
+        .then((data) => {
+          if (!cancelled && requestId === latestRequest) {
+            setStaffNotifications(data);
+          }
+        })
+        .catch(() => {
+          if (!cancelled && requestId === latestRequest) {
+            setStaffNotifications([]);
+          }
+        });
+    };
+
+    refreshStaffNotifications();
+
+    window.addEventListener(
+      NOTIFICATIONS_CHANGED_EVENT,
+      refreshStaffNotifications
+    );
+
+    return () => {
+      cancelled = true;
+
+      window.removeEventListener(
+        NOTIFICATIONS_CHANGED_EVENT,
+        refreshStaffNotifications
+      );
+    };
+  }, [role, accessToken]);
+
+
+
   if (!role || !user) return null;
-  const sections = navByRole[role];
+  const unread = role === 'staff'
+    ? staffNotifications.filter((n) => !n.isRead).length
+    : allNotifications.filter((n) => !n.read).length;
+
+  const sections = role === 'staff'
+    ? navByRole.staff.map((section) => ({
+        ...section,
+        items: section.items.map((item) =>
+          item.to === '/staff/notifications'
+            ? { ...item, badge: unread }
+            : item
+        ),
+      }))
+    : navByRole[role];
+
   const mobileNav = mobileNavByRole[role];
-  const unread = allNotifications.filter((n) => !n.read).length;
   const notifPrefix = `/${role}`;
 
   const handleLogout = () => {
@@ -199,7 +265,8 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                   >
                     <span className="shrink-0">{item.icon}</span>
                     <span className="flex-1 truncate">{item.label}</span>
-                    {item.badge && (
+                    {typeof item.badge === 'number' &&
+                      item.badge > 0 && (
                       <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-error-500 px-1.5 text-[10px] font-bold text-white">
                         {item.badge}
                       </span>
@@ -310,9 +377,55 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                   <div className="absolute right-0 z-20 mt-2 w-80 rounded-2xl border border-ink-200 bg-white shadow-float dark:border-ink-700 dark:bg-ink-900">
                     <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3 dark:border-ink-800">
                       <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">Notifications</p>
-                      <span className="rounded-full bg-error-500 px-1.5 text-[10px] font-bold text-white">{unread} new</span>
+                      {unread > 0 ? (
+                        <span className="rounded-full bg-error-500 px-1.5 text-[10px] font-bold text-white">
+                          {unread} new
+                        </span>
+                      ) : (
+                        <span className="text-xs text-ink-400">
+                          All caught up
+                        </span>
+                      )}
                     </div>
                     <div className="max-h-80 overflow-y-auto scrollbar-thin">
+                      {role === 'staff' ? (
+                        staffNotifications.length === 0 ? (
+                          <p className="px-4 py-5 text-center text-xs text-ink-500">
+                            No notifications yet.
+                          </p>
+                        ) : (
+                          staffNotifications.slice(0, 5).map((n) => (
+                            <Link
+                              key={n.id}
+                              to="/staff/notifications"
+                              onClick={() => setNotifOpen(false)}
+                              className={cn(
+                                'flex gap-3 border-b border-ink-50 px-4 py-3 last:border-0 hover:bg-ink-50 dark:border-ink-800/50 dark:hover:bg-ink-800/50',
+                                !n.isRead && 'bg-primary-50/40 dark:bg-primary-950/20'
+                              )}
+                            >
+                              {!n.isRead && (
+                                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                              )}
+
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                                  {n.title}
+                                </p>
+
+                                <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">
+                                  {n.message}
+                                </p>
+
+                                <p className="mt-1 text-[10px] text-ink-400">
+                                  {new Date(n.createdAtUtc).toLocaleString()}
+                                </p>
+                              </div>
+                            </Link>
+                          ))
+                        )
+                      ) : (
+                        <>
                       {allNotifications.slice(0, 5).map((n) => (
                         <Link
                           key={n.id}
@@ -328,6 +441,8 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                           </div>
                         </Link>
                       ))}
+                        </>
+                      )}
                     </div>
                     <Link to={`${notifPrefix}/notifications`} onClick={() => setNotifOpen(false)} className="block border-t border-ink-100 px-4 py-2.5 text-center text-xs font-medium text-primary-600 hover:bg-ink-50 dark:border-ink-800 dark:hover:bg-ink-800">
                       View all notifications
