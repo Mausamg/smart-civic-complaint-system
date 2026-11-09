@@ -8,7 +8,17 @@ public sealed class ComplaintCommentResponse
 
     public string Message { get; set; } = string.Empty;
 
-    public UserSummaryResponse CreatedBy { get; set; } = null!;
+    public ComplaintCommentAuthorResponse CreatedBy { get; set; } = null!;
 
     public DateTime CreatedAtUtc { get; set; }
+}
+
+
+public sealed class ComplaintCommentAuthorResponse
+{
+    public Guid Id { get; set; }
+
+    public string FirstName { get; set; } = string.Empty;
+
+    public string LastName { get; set; } = string.Empty;
 }

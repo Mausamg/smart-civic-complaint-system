@@ -42,6 +42,7 @@ import { StaffDashboard } from "./pages/staff/StaffDashboard";
 import { StaffComplaintDetailsPage } from "./pages/staff/StaffComplaintDetailsPage";
 import { StaffMapPage } from "./pages/staff/StaffMapPage";
 import { StaffNotificationsPage } from "./pages/staff/StaffNotificationsPage";
+import { StaffMessagesPage } from "./pages/staff/StaffMessagesPage";
 
 // Admin Pages
 import { AdminComplaintsPage } from "./pages/admin/AdminComplaintsPage";
@@ -116,7 +117,7 @@ function AppRoutes() {
         <Route path="queue" element={<StaffAssignedPage/>}/>
         <Route path="complaints/:id" element={<StaffComplaintDetailsPage/>}/>
         <Route path="map" element={<StaffMapPage/>}/>
-        <Route path="messages" element={<NotificationsPage linkPrefix="/staff"/>}/>
+        <Route path="messages" element={<StaffMessagesPage/>}/>
         <Route path="notifications" element={<StaffNotificationsPage/>}/>
         <Route path="reports" element={<AnalyticsPage/>}/>
         <Route path="profile" element={<ProfileSettingsPage linkPrefix="/staff"/>}/>

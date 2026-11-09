@@ -194,13 +194,40 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
 
     refreshStaffNotifications();
 
+    // Automatically check for new notifications every 30 seconds.
+    // Pause polling while the browser tab is hidden.
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshStaffNotifications();
+      }
+    }, 30000);
+
+    // Refresh immediately when the staff member returns to the tab.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshStaffNotifications();
+      }
+    };
+
     window.addEventListener(
       NOTIFICATIONS_CHANGED_EVENT,
       refreshStaffNotifications
     );
 
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibilityChange
+    );
+
     return () => {
       cancelled = true;
+
+      window.clearInterval(pollId);
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibilityChange
+      );
 
       window.removeEventListener(
         NOTIFICATIONS_CHANGED_EVENT,
@@ -216,13 +243,24 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
     ? staffNotifications.filter((n) => !n.isRead).length
     : allNotifications.filter((n) => !n.read).length;
 
+  const unreadCitizenReplies = role === 'staff'
+    ? staffNotifications.filter(
+        (n) =>
+          !n.isRead &&
+          n.title === 'New citizen reply' &&
+          n.complaintId !== null
+      ).length
+    : 0;
+
   const sections = role === 'staff'
     ? navByRole.staff.map((section) => ({
         ...section,
         items: section.items.map((item) =>
           item.to === '/staff/notifications'
             ? { ...item, badge: unread }
-            : item
+            : item.to === '/staff/messages'
+              ? { ...item, badge: unreadCitizenReplies }
+              : item
         ),
       }))
     : navByRole[role];
