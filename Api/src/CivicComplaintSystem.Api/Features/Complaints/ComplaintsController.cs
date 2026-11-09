@@ -865,7 +865,7 @@ public sealed class ComplaintsController(
 
 
     [HttpPost("{id:guid}/comments")]
-    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Staff}")]
+    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Staff},{AppRoles.Citizen}")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -897,8 +897,15 @@ public sealed class ComplaintsController(
         var isAdmin =
             User.IsInRole(AppRoles.Admin);
 
-        if (!isAdmin &&
-            complaint.AssignedToUserId != userId)
+        var isAssignedStaff =
+            User.IsInRole(AppRoles.Staff) &&
+            complaint.AssignedToUserId == userId;
+
+        var isCitizenOwner =
+            User.IsInRole(AppRoles.Citizen) &&
+            complaint.SubmittedByUserId == userId;
+
+        if (!isAdmin && !isAssignedStaff && !isCitizenOwner)
             return Forbid();
         
         if (ComplaintStatusRules.IsTerminal(
@@ -916,12 +923,26 @@ public sealed class ComplaintsController(
                 request.Message,
                 cancellationToken);
 
-        await notificationService.CreateAsync(
-            complaint.SubmittedByUserId,
-            "New complaint's update",
-            $"A new update was added to your complaint \"{complaint.Title}\".",
-            complaint.Id,
-            cancellationToken);
+        var isCitizenReply =
+            isCitizenOwner && !isAdmin && !isAssignedStaff;
+
+        Guid? recipientId = isCitizenReply
+            ? complaint.AssignedToUserId
+            : complaint.SubmittedByUserId;
+
+        if (recipientId is Guid recipient && recipient != userId)
+        {
+            await notificationService.CreateAsync(
+                recipient,
+                isCitizenReply
+                    ? "New citizen reply"
+                    : "New complaint update",
+                isCitizenReply
+                    ? $"The citizen replied to complaint \"{complaint.Title}\"."
+                    : $"A new update was added to your complaint \"{complaint.Title}\".",
+                complaint.Id,
+                cancellationToken);
+        }
 
         return StatusCode(
             StatusCodes.Status201Created,

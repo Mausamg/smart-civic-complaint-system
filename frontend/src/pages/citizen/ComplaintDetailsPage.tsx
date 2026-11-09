@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
 import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
+import { ComplaintConversationPanel } from '@/components/complaints/ComplaintConversationPanel';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -16,7 +17,7 @@ import {
 
 export function ComplaintDetailsPage() {
   const { id } = useParams<{ id: string }>();
-  const { accessToken } = useApp();
+  const { accessToken, user } = useApp();
 
   const [complaint, setComplaint] =
       useState<ComplaintApiResponse | null>(null);
@@ -170,6 +171,15 @@ export function ComplaintDetailsPage() {
         />
 
         <CitizenComplaintDetailsOverview complaint={complaint} />
+
+        {accessToken && (
+          <ComplaintConversationPanel
+            complaintId={complaint.id}
+            complaintStatus={complaint.status}
+            accessToken={accessToken}
+            currentUserId={user?.id}
+          />
+        )}
 
         {accessToken && (
           <ComplaintEvidenceSection

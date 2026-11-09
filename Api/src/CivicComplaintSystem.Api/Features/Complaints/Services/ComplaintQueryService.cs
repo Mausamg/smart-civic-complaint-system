@@ -531,12 +531,11 @@ public async Task<PaginatedResponse<ComplaintResponse>>
                     Message = c.Message,
 
                     CreatedBy =
-                        new UserSummaryResponse
+                        new ComplaintCommentAuthorResponse
                         {
                             Id = c.CreatedByUser.Id,
                             FirstName = c.CreatedByUser.FirstName,
-                            LastName = c.CreatedByUser.LastName,
-                            Email = c.CreatedByUser.Email
+                            LastName = c.CreatedByUser.LastName
                         },
 
                     CreatedAtUtc = c.CreatedAtUtc
