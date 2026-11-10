@@ -168,7 +168,10 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (role !== 'staff' || !accessToken) {
+    if (
+      (role !== 'staff' && role !== 'citizen') ||
+      !accessToken
+    ) {
       setStaffNotifications([]);
       return;
     }
@@ -239,7 +242,7 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
 
 
   if (!role || !user) return null;
-  const unread = role === 'staff'
+  const unread = role === 'staff' || role === 'citizen'
     ? staffNotifications.filter((n) => !n.isRead).length
     : allNotifications.filter((n) => !n.read).length;
 
@@ -252,11 +255,11 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
       ).length
     : 0;
 
-  const sections = role === 'staff'
-    ? navByRole.staff.map((section) => ({
+  const sections = role === 'staff' || role === 'citizen'
+    ? navByRole[role].map((section) => ({
         ...section,
         items: section.items.map((item) =>
-          item.to === '/staff/notifications'
+          item.to === `/${role}/notifications`
             ? { ...item, badge: unread }
             : item.to === '/staff/messages'
               ? { ...item, badge: unreadCitizenReplies }
@@ -426,7 +429,7 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                       )}
                     </div>
                     <div className="max-h-80 overflow-y-auto scrollbar-thin">
-                      {role === 'staff' ? (
+                      {(role === 'staff' || role === 'citizen') ? (
                         staffNotifications.length === 0 ? (
                           <p className="px-4 py-5 text-center text-xs text-ink-500">
                             No notifications yet.
@@ -435,7 +438,7 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                           staffNotifications.slice(0, 5).map((n) => (
                             <Link
                               key={n.id}
-                              to="/staff/notifications"
+                              to={`${notifPrefix}/notifications`}
                               onClick={() => setNotifOpen(false)}
                               className={cn(
                                 'flex gap-3 border-b border-ink-50 px-4 py-3 last:border-0 hover:bg-ink-50 dark:border-ink-800/50 dark:hover:bg-ink-800/50',

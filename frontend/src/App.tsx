@@ -29,6 +29,7 @@ import {
 } from "./pages/citizen/MiscPages";
 import { MyComplaintsPage } from "./pages/citizen/MyComplaintsPage";
 import { NotificationsPage } from "./pages/citizen/NotificationsPage";
+import { CitizenNotificationsPage } from "./pages/citizen/CitizenNotificationsPage";
 import { ProfileSettingsPage } from "./pages/citizen/ProfileSettingsPage";
 import { ReportComplaintPage } from "./pages/citizen/ReportComplaintPage";
 import { PublicMapPage as CitizenMapPage } from "./pages/public/PublicMapPage";
@@ -101,7 +102,7 @@ function AppRoutes() {
         <Route path="complaints/:id" element={<ComplaintDetailsPage/>}/>
         <Route path="map" element={<CitizenMapPage/>}/>
         <Route path="drafts" element={<SavedDraftsPage/>}/>
-        <Route path="notifications" element={<NotificationsPage linkPrefix="/citizen"/>}/>
+        <Route path="notifications" element={<CitizenNotificationsPage/>}/>
         <Route path="announcements" element={<AnnouncementsPage/>}/>
         <Route path="feedback" element={<FeedbackPage/>}/>
         <Route path="profile" element={<ProfileSettingsPage linkPrefix="/citizen"/>}/>
