@@ -10,7 +10,8 @@ namespace CivicComplaintSystem.Api.Features.Auth;
 [Route("api/auth")]
 public sealed class AuthController(
     UserManager<ApplicationUser> userManager,
-    JwtTokenService jwtTokenService)
+    JwtTokenService jwtTokenService,
+    IConfiguration configuration)
     : ControllerBase
 {
     [HttpPost("register")]
@@ -21,6 +22,22 @@ public sealed class AuthController(
         RegisterRequest request)
     {
         var email = request.Email.Trim();
+
+        // Prevent public registration with the reserved admin email.
+        var adminEmail =
+            configuration["SeedAdmin:Email"]?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(adminEmail) &&
+            string.Equals(
+                email,
+                adminEmail,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new
+            {
+                message = "This email is not available for registration."
+            });
+        }
 
         var existingUser =
             await userManager.FindByEmailAsync(email);
