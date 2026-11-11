@@ -10,9 +10,15 @@ import { departments,staffMembers } from '@/data/mockData';
 import { cn,initials } from '@/utils/format';
 import { Edit2,KeyRound,Plus,Trash2,Users } from 'lucide-react';
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export function DepartmentsPage() {
   const { addToast } = useApp();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const initialTab = pathname === '/admin/staff'
+    ? 'staff'
+    : 'departments';
   const [showAdd, setShowAdd] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [editDept, setEditDept] = useState<string | null>(null);
@@ -130,8 +136,11 @@ export function DepartmentsPage() {
 
   return (
     <div>
-      <PageHeader title="Departments & Staff" subtitle="Manage departments, staff members, and complaint categories." breadcrumbs={[{ label: 'Admin', to: '/admin/dashboard' }, { label: 'Departments' }]} />
-      <Card className="p-5"><Tabs tabs={tabs} defaultTab="departments" variant="pill" /></Card>
+      <PageHeader title="Departments & Staff" subtitle="Manage departments, staff members, and complaint categories." breadcrumbs={[{ label: 'Admin', to: '/admin/dashboard' }, { label: initialTab === 'staff' ? 'Staff' : 'Departments' }]} />
+      <Card className="p-5"><Tabs key={initialTab} tabs={tabs} defaultTab={initialTab} variant="pill" onChange={(id) => {
+  if (id === 'staff') navigate('/admin/staff');
+  if (id === 'departments') navigate('/admin/departments');
+}} /></Card>
 
       <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditDept(null); }} title={editDept ? 'Edit department' : 'Add new department'} size="md"
         footer={<><Button variant="outline" onClick={() => { setShowAdd(false); setEditDept(null); }}>Cancel</Button><Button onClick={() => { setShowAdd(false); setEditDept(null); addToast({ type: 'success', title: 'Saved' }); }}>Save</Button></>}>

@@ -128,3 +128,45 @@ export async function getDashboardCategoryBreakdown(
     }
   );
 }
+
+/**
+ * Complaint counts grouped by status.
+ */
+export interface DashboardStatusResponse {
+  status: string;
+  count: number;
+}
+
+export async function getDashboardStatusBreakdown(
+  accessToken: string
+): Promise<DashboardStatusResponse[]> {
+  return apiRequest<DashboardStatusResponse[]>(
+    '/api/dashboard/status-breakdown',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
+/**
+ * Admin-only complaint resolution metrics.
+ */
+export interface DashboardResolutionMetricsResponse {
+  totalComplaints: number;
+  resolvedComplaints: number;
+  resolutionRate: number;
+  averageResolutionTimeHours: number;
+}
+
+export async function getDashboardResolutionMetrics(
+  accessToken: string
+): Promise<DashboardResolutionMetricsResponse> {
+  return apiRequest<DashboardResolutionMetricsResponse>(
+    '/api/dashboard/resolution-metrics',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
