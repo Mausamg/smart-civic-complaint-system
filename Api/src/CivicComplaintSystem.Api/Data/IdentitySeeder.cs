@@ -69,6 +69,15 @@ public static class IdentitySeeder
             await userManager.FindByEmailAsync(
                 adminEmail);
 
+        // Never promote an existing non-admin account.
+        if (admin is not null &&
+            !await userManager.IsInRoleAsync(
+                admin, AppRoles.Admin))
+        {
+            throw new InvalidOperationException(
+                "Configured seed admin email belongs to an existing non-admin account.");
+        }
+
         if (admin is null)
         {
             var adminPassword =
