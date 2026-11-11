@@ -47,7 +47,7 @@ import { AdminComplaintsLive } from "./components/complaints/AdminComplaintsLive
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminComplaintDetailsPage } from "./pages/admin/AdminComplaintDetailsPage";
 import { AnalyticsPage } from "./pages/admin/AnalyticsPage";
-import { AssignmentPage } from "./pages/admin/AssignmentPage";
+import { AdminAssignmentLive } from "./pages/admin/AdminAssignmentLive";
 import { DepartmentsPage } from "./pages/admin/DepartmentsPage";
 import { EscalationsPage } from "./pages/admin/EscalationsPage";
 
@@ -129,7 +129,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<AdminDashboard/>}/>
         <Route path="complaints" element={<AdminComplaintsLive/>}/>
         <Route path="complaints/:id" element={<AdminComplaintDetailsPage/>}/>
-        <Route path="assignment" element={<AssignmentPage/>}/>
+        <Route path="assignment" element={<AdminAssignmentLive/>}/>
         <Route path="departments" element={<DepartmentsPage/>}/>
         <Route path="staff" element={<DepartmentsPage/>}/>
         <Route path="map" element={<CitizenMapPage/>}/>
