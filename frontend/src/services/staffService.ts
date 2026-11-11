@@ -28,3 +28,65 @@ export async function getActiveStaff(
     }
   );
 }
+
+/**
+ * Retrieve all staff accounts, including inactive staff.
+ * Admin only.
+ */
+export async function getAllStaff(
+  accessToken: string
+): Promise<StaffApiResponse[]> {
+  return apiRequest<StaffApiResponse[]>(
+    '/api/users/staff',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
+export interface CreateStaffAccountRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+/**
+ * Create a real staff account.
+ * Admin only.
+ */
+export async function createStaffAccount(
+  request: CreateStaffAccountRequest,
+  accessToken: string
+): Promise<StaffApiResponse> {
+  return apiRequest<StaffApiResponse>(
+    '/api/users/staff',
+    {
+      method: 'POST',
+      token: accessToken,
+      json: request,
+    }
+  );
+}
+
+/**
+ * Activate or deactivate a staff account.
+ * Admin only.
+ */
+export async function updateStaffActiveStatus(
+  staffId: string,
+  isActive: boolean,
+  accessToken: string
+): Promise<StaffApiResponse> {
+  return apiRequest<StaffApiResponse>(
+    `/api/users/staff/${encodeURIComponent(staffId)}/status`,
+    {
+      method: 'PATCH',
+      token: accessToken,
+      json: {
+        isActive,
+      },
+    }
+  );
+}

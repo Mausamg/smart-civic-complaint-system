@@ -49,6 +49,7 @@ import { AdminComplaintDetailsPage } from "./pages/admin/AdminComplaintDetailsPa
 import { AnalyticsPage } from "./pages/admin/AnalyticsPage";
 import { AdminAssignmentLive } from "./pages/admin/AdminAssignmentLive";
 import { DepartmentsPage } from "./pages/admin/DepartmentsPage";
+import { AdminStaffLive } from "./pages/admin/AdminStaffLive";
 import { EscalationsPage } from "./pages/admin/EscalationsPage";
 
 function RequireRole({ role, children }: { role: 'citizen' | 'staff' | 'admin'; children: React.ReactNode }) {
@@ -131,7 +132,7 @@ function AppRoutes() {
         <Route path="complaints/:id" element={<AdminComplaintDetailsPage/>}/>
         <Route path="assignment" element={<AdminAssignmentLive/>}/>
         <Route path="departments" element={<DepartmentsPage/>}/>
-        <Route path="staff" element={<DepartmentsPage/>}/>
+        <Route path="staff" element={<AdminStaffLive/>}/>
         <Route path="map" element={<CitizenMapPage/>}/>
         <Route path="announcements" element={<AnnouncementsPage/>}/>
         <Route path="analytics" element={<AnalyticsPage/>}/>
