@@ -5,6 +5,13 @@ import { apiRequest } from './apiClient';
  * Keep backend DTO types separate from the
  * frontend's existing Complaint UI model.
  */
+export interface ComplaintUserSummary {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string | null;
+}
+
 export interface ComplaintApiResponse {
     id: string;
     title: string;
@@ -28,6 +35,8 @@ export interface ComplaintApiResponse {
     updatedAt: string | null;
     submittedByUserId: string;
     assignedToUserId: string | null;
+    submittedBy?: ComplaintUserSummary | null;
+    assignedTo?: ComplaintUserSummary | null;
 }
 
 /**
@@ -190,6 +199,145 @@ export async function getComplaintStatusHistory(
     {
       method: 'GET',
       token: accessToken,
+    }
+  );
+}
+
+/**
+ * Admin-only complaint listing.
+ * Supports backend pagination, filtering and sorting.
+ */
+export interface AdminComplaintsQuery {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+  priority?: string;
+  category?: string;
+  location?: string;
+  assignedToUserId?: string;
+  sortBy?: 'createdAt' | 'title' | 'category' | 'status' | 'priority';
+  sortDirection?: 'asc' | 'desc';
+  createdFrom?: string;
+  createdTo?: string;
+}
+
+export interface PaginatedComplaintsResponse {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  items: ComplaintApiResponse[];
+}
+
+export async function getAdminComplaints(
+  accessToken: string,
+  query: AdminComplaintsQuery = {}
+): Promise<PaginatedComplaintsResponse> {
+  const params = new URLSearchParams();
+
+  const append = (
+    key: string,
+    value: string | number | undefined
+  ) => {
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value));
+    }
+  };
+
+  append('Page', query.page);
+  append('PageSize', query.pageSize);
+  append('Search', query.search);
+  append('Status', query.status);
+  append('Priority', query.priority);
+  append('Category', query.category);
+  append('Location', query.location);
+  append('AssignedToUserId', query.assignedToUserId);
+  append('SortBy', query.sortBy);
+  append('SortDirection', query.sortDirection);
+  append('CreatedFrom', query.createdFrom);
+  append('CreatedTo', query.createdTo);
+
+  const queryString = params.toString();
+
+  const endpoint = queryString
+    ? `/api/complaints?${queryString}`
+    : '/api/complaints';
+
+  return apiRequest<PaginatedComplaintsResponse>(
+    endpoint,
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
+/**
+ * Admin-only complaint assignment or reassignment.
+ *
+ * PATCH /api/complaints/{id}/assign
+ */
+export interface AssignComplaintResponse {
+  id: string;
+  status: string;
+  assignedTo: ComplaintUserSummary;
+  updatedAt: string | null;
+}
+
+export async function assignComplaint(
+  complaintId: string,
+  staffUserId: string,
+  accessToken: string
+): Promise<AssignComplaintResponse> {
+  return apiRequest<AssignComplaintResponse>(
+    `/api/complaints/${encodeURIComponent(complaintId)}/assign`,
+    {
+      method: 'PATCH',
+      token: accessToken,
+      json: {
+        staffUserId,
+      },
+    }
+  );
+}
+
+/**
+ * Valid complaint priority values.
+ */
+export type ComplaintPriorityValue =
+  | 'Low'
+  | 'Medium'
+  | 'High'
+  | 'Critical';
+
+/**
+ * Response from the Admin priority update endpoint.
+ */
+export interface UpdateComplaintPriorityResponse {
+  id: string;
+  priority: ComplaintPriorityValue;
+  updatedAt: string | null;
+}
+
+/**
+ * Admin-only complaint priority update.
+ *
+ * PATCH /api/complaints/{id}/priority
+ */
+export async function updateComplaintPriority(
+  complaintId: string,
+  priority: ComplaintPriorityValue,
+  accessToken: string
+): Promise<UpdateComplaintPriorityResponse> {
+  return apiRequest<UpdateComplaintPriorityResponse>(
+    `/api/complaints/${encodeURIComponent(complaintId)}/priority`,
+    {
+      method: 'PATCH',
+      token: accessToken,
+      json: {
+        priority,
+      },
     }
   );
 }
