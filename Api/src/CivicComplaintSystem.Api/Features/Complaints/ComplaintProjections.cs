@@ -14,6 +14,10 @@ public static class ComplaintProjections
                 Description = c.Description,
                 Category = c.Category,
                 Location = c.Location,
+                DepartmentId = c.DepartmentId,
+                DepartmentName = c.Department == null
+                    ? null
+                    : c.Department.Name,
 
                 Subcategory = c.Subcategory,
                 ObservedAt = c.ObservedAt,

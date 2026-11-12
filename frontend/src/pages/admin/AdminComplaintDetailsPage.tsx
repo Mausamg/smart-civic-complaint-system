@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { AdminComplaintAssignmentPanel } from '@/components/complaints/AdminComplaintAssignmentPanel';
+import { AdminComplaintDepartmentPanel } from '@/components/complaints/AdminComplaintDepartmentPanel';
 import { AdminComplaintPriorityPanel } from '@/components/complaints/AdminComplaintPriorityPanel';
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
 import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
@@ -170,6 +171,16 @@ export function AdminComplaintDetailsPage() {
               </div>
             </div>
           </Card>
+
+          {accessToken && (
+            <AdminComplaintDepartmentPanel
+              complaint={complaint}
+              accessToken={accessToken}
+              onUpdated={() =>
+                setRetryCount((count) => count + 1)
+              }
+            />
+          )}
 
           {accessToken && (
             <AdminComplaintAssignmentPanel

@@ -7,6 +7,8 @@ public sealed class ComplaintResponse
     public string Description { get; init; } = string.Empty;
     public string Category { get; init; } = string.Empty;
     public string Location { get; init; } = string.Empty;
+    public Guid? DepartmentId { get; init; }
+    public string? DepartmentName { get; init; }
 
     public string? Subcategory { get; init; }
 

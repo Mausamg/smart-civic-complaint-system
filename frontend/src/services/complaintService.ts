@@ -18,6 +18,8 @@ export interface ComplaintApiResponse {
     description: string;
     category: string;
     location: string;
+    departmentId: string | null;
+    departmentName: string | null;
 
     subcategory: string | null;
     observedAt: string | null;
@@ -70,6 +72,38 @@ export async function getComplaintById(
       }
   );
 }
+
+/**
+ * Response from the admin department reassignment endpoint.
+ */
+export interface UpdateComplaintDepartmentResponse {
+    id: string;
+    category: string;
+    departmentId: string;
+    departmentName: string;
+    status: string;
+    updatedAt: string | null;
+}
+
+/**
+ * Assign an existing complaint to an active department.
+ * Requires an authenticated Admin access token.
+ */
+export async function updateComplaintDepartment(
+    complaintId: string,
+    departmentId: string,
+    accessToken: string
+): Promise<UpdateComplaintDepartmentResponse> {
+    return apiRequest<UpdateComplaintDepartmentResponse>(
+        `/api/complaints/${encodeURIComponent(complaintId)}/department`,
+        {
+            method: 'PATCH',
+            token: accessToken,
+            json: { departmentId },
+        }
+    );
+}
+
 
 export interface CreateComplaintRequest {
     title: string;

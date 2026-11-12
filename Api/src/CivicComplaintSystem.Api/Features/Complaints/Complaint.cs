@@ -1,4 +1,5 @@
 using CivicComplaintSystem.Api.Features.Complaints.Attachments;
+using CivicComplaintSystem.Api.Features.Departments;
 using CivicComplaintSystem.Api.Features.Users;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
@@ -18,6 +19,10 @@ public sealed class Complaint
         = ComplaintPriority.Medium;
 
     public required string Category { get; set; }
+
+    public Guid? DepartmentId { get; set; }
+
+    public Department? Department { get; set; }
 
     public required string Location { get; set; }
 

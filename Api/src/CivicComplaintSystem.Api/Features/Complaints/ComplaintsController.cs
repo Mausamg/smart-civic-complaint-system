@@ -484,6 +484,117 @@ public sealed class ComplaintsController(
     }
 
 
+    [HttpPatch("{id:guid}/department")]
+    [Authorize(Roles = AppRoles.Admin)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateDepartment(
+        Guid id,
+        UpdateComplaintDepartmentRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!request.DepartmentId.HasValue ||
+            request.DepartmentId.Value == Guid.Empty)
+        {
+            return BadRequest(new
+            {
+                message = "A valid DepartmentId is required."
+            });
+        }
+
+        var complaint = await context.Complaints
+            .FirstOrDefaultAsync(
+                c => c.Id == id,
+                cancellationToken);
+
+        if (complaint is null)
+        {
+            return NotFound(new
+            {
+                message = "Complaint not found."
+            });
+        }
+
+        if (complaint.Status is
+            ComplaintStatus.Resolved or
+            ComplaintStatus.Rejected or
+            ComplaintStatus.Withdrawn)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Closed complaints cannot change department."
+            });
+        }
+
+        var department = await context.Departments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                d => d.Id == request.DepartmentId.Value,
+                cancellationToken);
+
+        if (department is null)
+        {
+            return NotFound(new
+            {
+                message = "Department not found."
+            });
+        }
+
+        if (!department.IsActive)
+        {
+            return BadRequest(new
+            {
+                message = "Cannot assign an inactive department."
+            });
+        }
+
+        if (complaint.DepartmentId == department.Id)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Complaint already belongs to this department."
+            });
+        }
+
+        if (complaint.AssignedToUserId.HasValue)
+        {
+            var assignedStaff = await userManager.FindByIdAsync(
+                complaint.AssignedToUserId.Value.ToString());
+
+            if (assignedStaff?.DepartmentId != department.Id)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "The assigned staff member does not belong " +
+                        "to the selected department. " +
+                        "Review staff assignment first."
+                });
+            }
+        }
+
+        complaint.DepartmentId = department.Id;
+        complaint.UpdatedAt = DateTime.UtcNow;
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            complaint.Id,
+            complaint.Category,
+            complaint.DepartmentId,
+            DepartmentName = department.Name,
+            Status = complaint.Status.ToString(),
+            complaint.UpdatedAt
+        });
+    }
+
+
     [HttpPatch("{id:guid}/assign")]
     [Authorize(Roles = AppRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status200OK)]

@@ -80,6 +80,9 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
@@ -128,6 +131,8 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedToUserId");
+
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("SubmittedByUserId");
 
@@ -232,6 +237,68 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.ToTable("ComplaintStatusHistories");
                 });
 
+            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Departments.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DefaultPriority")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ExpectedResolutionDays")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("HeadStaffUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HeadStaffUserId");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique();
+
+                    b.ToTable("Departments");
+                });
+
+            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Departments.DepartmentCategory", b =>
+                {
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CategoryKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.HasKey("DepartmentId", "CategoryKey");
+
+                    b.ToTable("DepartmentCategories");
+                });
+
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -280,6 +347,9 @@ namespace CivicComplaintSystem.Api.Migrations
 
                     b.Property<DateTimeOffset>("CreateAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -333,6 +403,8 @@ namespace CivicComplaintSystem.Api.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -499,6 +571,11 @@ namespace CivicComplaintSystem.Api.Migrations
                         .WithMany()
                         .HasForeignKey("AssignedToUserId");
 
+                    b.HasOne("CivicComplaintSystem.Api.Features.Departments.Department", "Department")
+                        .WithMany("Complaints")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "SubmittedByUser")
                         .WithMany()
                         .HasForeignKey("SubmittedByUserId")
@@ -506,6 +583,8 @@ namespace CivicComplaintSystem.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("AssignedToUser");
+
+                    b.Navigation("Department");
 
                     b.Navigation("SubmittedByUser");
                 });
@@ -582,6 +661,27 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.Navigation("Complaint");
                 });
 
+            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Departments.Department", b =>
+                {
+                    b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "HeadStaffUser")
+                        .WithMany()
+                        .HasForeignKey("HeadStaffUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("HeadStaffUser");
+                });
+
+            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Departments.DepartmentCategory", b =>
+                {
+                    b.HasOne("CivicComplaintSystem.Api.Features.Departments.Department", "Department")
+                        .WithMany("Categories")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+                });
+
             modelBuilder.Entity("CivicComplaintSystem.Api.Features.Notifications.Notification", b =>
                 {
                     b.HasOne("CivicComplaintSystem.Api.Features.Users.ApplicationUser", "User")
@@ -591,6 +691,16 @@ namespace CivicComplaintSystem.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Users.ApplicationUser", b =>
+                {
+                    b.HasOne("CivicComplaintSystem.Api.Features.Departments.Department", "Department")
+                        .WithMany("StaffMembers")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Department");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -653,6 +763,15 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("StatusHistory");
+                });
+
+            modelBuilder.Entity("CivicComplaintSystem.Api.Features.Departments.Department", b =>
+                {
+                    b.Navigation("Categories");
+
+                    b.Navigation("Complaints");
+
+                    b.Navigation("StaffMembers");
                 });
 #pragma warning restore 612, 618
         }

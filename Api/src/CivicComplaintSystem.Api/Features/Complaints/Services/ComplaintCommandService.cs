@@ -6,11 +6,41 @@ namespace CivicComplaintSystem.Api.Features.Complaints.Services;
 public sealed class ComplaintCommandService(
     AppDbContext context)
 {
+    private async Task<Guid?> ResolveDepartmentIdAsync(
+        string category,
+        CancellationToken cancellationToken)
+    {
+        var categoryKey = category
+            .Trim()
+            .ToLowerInvariant();
+
+        var matchingDepartmentIds =
+            await context.DepartmentCategories
+                .AsNoTracking()
+                .Where(mapping =>
+                    mapping.CategoryKey == categoryKey &&
+                    mapping.Department.IsActive)
+                .Select(mapping => mapping.DepartmentId)
+                .Distinct()
+                .Take(2)
+                .ToListAsync(cancellationToken);
+
+        // Exactly one active department must match.
+        // No match or multiple matches means unassigned.
+        return matchingDepartmentIds.Count == 1
+            ? matchingDepartmentIds[0]
+            : null;
+    }
+
     public async Task<Complaint> CreateAsync(
         Guid userId,
         CreateComplaintRequest request,
         CancellationToken cancellationToken = default)
     {
+        var departmentId = await ResolveDepartmentIdAsync(
+            request.Category,
+            cancellationToken);
+
         var complaint = new Complaint
         {
             Id = Guid.NewGuid(),
@@ -18,6 +48,7 @@ public sealed class ComplaintCommandService(
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
             Category = request.Category.Trim(),
+            DepartmentId = departmentId,
             Location = request.Location.Trim(),
 
             Subcategory = request.Subcategory?.Trim(),
@@ -56,7 +87,24 @@ public sealed class ComplaintCommandService(
             complaint.Description = request.Description.Trim();
 
         if (request.Category is not null)
-            complaint.Category = request.Category.Trim();
+        {
+            var newCategory = request.Category.Trim();
+
+            // Preserve the existing department if the
+            // category has not materially changed.
+            if (!string.Equals(
+                complaint.Category.Trim(),
+                newCategory,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                complaint.DepartmentId =
+                    await ResolveDepartmentIdAsync(
+                        newCategory,
+                        cancellationToken);
+            }
+
+            complaint.Category = newCategory;
+        }
 
         if (request.Location is not null)
             complaint.Location = request.Location.Trim();

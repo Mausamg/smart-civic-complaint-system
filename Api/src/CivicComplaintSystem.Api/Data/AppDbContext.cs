@@ -1,4 +1,5 @@
 using CivicComplaintSystem.Api.Features.Complaints;
+using CivicComplaintSystem.Api.Features.Departments;
 using CivicComplaintSystem.Api.Features.Complaints.Attachments;
 using CivicComplaintSystem.Api.Features.Notifications;
 using CivicComplaintSystem.Api.Features.Users;
@@ -20,6 +21,12 @@ public class AppDbContext
     public DbSet<Complaint> Complaints =>
         Set<Complaint>();
 
+    public DbSet<Department> Departments =>
+        Set<Department>();
+
+    public DbSet<DepartmentCategory> DepartmentCategories =>
+        Set<DepartmentCategory>();
+
     public DbSet<ComplaintStatusHistory> ComplaintStatusHistories =>
         Set<ComplaintStatusHistory>();
 
@@ -38,6 +45,41 @@ public class AppDbContext
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<Department>()
+            .HasIndex(d => d.NormalizedName)
+            .IsUnique();
+
+        builder.Entity<Department>()
+            .HasOne(d => d.HeadStaffUser)
+            .WithMany()
+            .HasForeignKey(d => d.HeadStaffUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ApplicationUser>()
+            .HasOne(u => u.Department)
+            .WithMany(d => d.StaffMembers)
+            .HasForeignKey(u => u.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Complaint>()
+            .HasOne(c => c.Department)
+            .WithMany(d => d.Complaints)
+            .HasForeignKey(c => c.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<DepartmentCategory>()
+            .HasKey(dc => new
+            {
+                dc.DepartmentId,
+                dc.CategoryKey
+            });
+
+        builder.Entity<DepartmentCategory>()
+            .HasOne(dc => dc.Department)
+            .WithMany(d => d.Categories)
+            .HasForeignKey(dc => dc.DepartmentId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<ComplaintStatusHistory>()
             .HasOne(h => h.Complaint)
