@@ -9,7 +9,8 @@ namespace CivicComplaintSystem.Api.Features.Users.Staff;
 [Route("api/users/staff")]
 [Authorize(Roles = AppRoles.Admin)]
 public sealed class StaffController(
-    StaffService staffService)
+    StaffService staffService,
+    StaffPerformanceService performanceService)
     : ControllerBase
 {
     [HttpGet]
@@ -29,6 +30,36 @@ public sealed class StaffController(
                 isActive);
 
         return Ok(staff);
+    }
+
+    [HttpGet("{id:guid}/performance")]
+    [ProducesResponseType(
+        typeof(StaffPerformanceResponse),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StaffPerformanceResponse>>
+        GetPerformance(
+            Guid id,
+            CancellationToken cancellationToken)
+    {
+        var staff = await staffService.FindStaffAsync(id);
+
+        if (staff is null)
+        {
+            return NotFound(new
+            {
+                message = "Staff user not found."
+            });
+        }
+
+        var performance =
+            await performanceService.GetAsync(
+                id,
+                cancellationToken);
+
+        return Ok(performance);
     }
 
     [HttpPost]

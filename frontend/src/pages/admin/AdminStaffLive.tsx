@@ -1,4 +1,10 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+
+import {
+  getStaffWorkloads,
+  type StaffWorkload,
+} from '@/services/staffWorkloadService';
 
 import { AdminStaffCreateControl } from '@/components/admin/AdminStaffCreateControl';
 import { AdminStaffStatusControl } from '@/components/admin/AdminStaffStatusControl';
@@ -28,6 +34,12 @@ export function AdminStaffLive() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [filter, setFilter] = useState<StaffFilter>('all');
+
+  const [workloads, setWorkloads] = useState<
+    Record<string, StaffWorkload>
+  >({});
+  const [workloadsLoading, setWorkloadsLoading] = useState(true);
+  const [workloadsError, setWorkloadsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +71,45 @@ export function AdminStaffLive() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, retryCount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setWorkloadsLoading(true);
+    setWorkloadsError(null);
+    setWorkloads({});
+
+    if (!accessToken) {
+      setWorkloadsError('Please sign in as an administrator.');
+      setWorkloadsLoading(false);
+      return;
+    }
+
+    getStaffWorkloads(accessToken)
+      .then((data) => {
+        if (!cancelled) {
+          setWorkloads(data);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setWorkloadsError(
+            err instanceof Error
+              ? err.message
+              : 'Unable to load staff workloads.'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setWorkloadsLoading(false);
+        }
       });
 
     return () => {
@@ -144,6 +195,14 @@ export function AdminStaffLive() {
         </div>
       </div>
 
+      {!loading && !error && workloadsError && (
+        <Card className="mb-4 p-4">
+          <p role="alert" className="text-sm text-error-600">
+            Workload statistics are unavailable: {workloadsError}
+          </p>
+        </Card>
+      )}
+
       {loading ? (
         <Card className="p-6">
           <p role="status" className="text-sm text-ink-500">
@@ -168,7 +227,13 @@ export function AdminStaffLive() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredStaff.map((person) => (
-            <Card key={person.id} className="p-5">
+            <Card key={person.id} className="p-5 group relative cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700">
+              <Link
+                to={`/admin/staff/${encodeURIComponent(person.id)}`}
+                aria-label={`Open staff profile for ${person.firstName} ${person.lastName}`}
+                className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              />
+
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="break-words text-sm font-semibold text-ink-900 dark:text-ink-100">
@@ -190,6 +255,47 @@ export function AdminStaffLive() {
                 </span>
               </div>
 
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {[
+                  {
+                    label: 'Total assigned',
+                    value: workloads[person.id.trim().toLowerCase()]
+                      ?.totalAssigned ?? 0,
+                  },
+                  {
+                    label: 'Active assigned',
+                    value: workloads[person.id.trim().toLowerCase()]
+                      ?.activeAssigned ?? 0,
+                  },
+                  {
+                    label: 'In progress',
+                    value: workloads[person.id.trim().toLowerCase()]
+                      ?.inProgress ?? 0,
+                  },
+                  {
+                    label: 'Resolved',
+                    value: workloads[person.id.trim().toLowerCase()]
+                      ?.resolved ?? 0,
+                  },
+                ].map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="rounded-lg bg-ink-50 p-3 dark:bg-ink-800/50"
+                  >
+                    <p className="text-xs text-ink-500">
+                      {metric.label}
+                    </p>
+                    <p className="mt-1 text-lg font-semibold text-ink-900 dark:text-ink-100">
+                      {workloadsLoading
+                        ? '—'
+                        : workloadsError
+                          ? 'N/A'
+                          : metric.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
               <div className="mt-4 border-t border-ink-100 pt-3 text-xs text-ink-500 dark:border-ink-800">
                 <p>
                   Created:{' '}
@@ -201,7 +307,7 @@ export function AdminStaffLive() {
               </div>
 
               {accessToken && (
-                <div className="mt-4 flex justify-end border-t border-ink-100 pt-3 dark:border-ink-800">
+                <div className="relative z-20 mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-ink-100 pt-3 dark:border-ink-800">
                   <AdminStaffStatusControl
                     staff={person}
                     accessToken={accessToken}

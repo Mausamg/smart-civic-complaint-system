@@ -59,6 +59,7 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<ComplaintAttachmentService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<StaffService>();
+builder.Services.AddScoped<StaffPerformanceService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {

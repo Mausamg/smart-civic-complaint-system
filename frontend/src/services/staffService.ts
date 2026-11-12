@@ -90,3 +90,62 @@ export async function updateStaffActiveStatus(
     }
   );
 }
+
+/**
+ * A recorded period during which a complaint
+ * was assigned to a specific staff member.
+ */
+export interface StaffAssignmentActivityResponse {
+  assignmentId: string;
+  complaintId: string;
+  complaintTitle: string;
+  currentStatus: string;
+
+  assignedAtUtc: string;
+  reassignedAtUtc: string | null;
+
+  firstActionAtUtc: string | null;
+  resolvedAtUtc: string | null;
+
+  firstActionMinutes: number | null;
+  resolutionMinutes: number | null;
+
+  resolvedByStaff: boolean;
+  isCurrentlyAssigned: boolean;
+}
+
+/**
+ * Staff performance calculated by the backend
+ * from complaint assignment and activity history.
+ */
+export interface StaffPerformanceResponse {
+  staffId: string;
+
+  currentlyAssigned: number;
+  lifetimeAssigned: number;
+  resolvedByStaff: number;
+
+  averageFirstActionMinutes: number | null;
+  averageResolutionMinutes: number | null;
+
+  assignments: StaffAssignmentActivityResponse[];
+}
+
+/**
+ * Admin-only staff performance endpoint.
+ *
+ * Returns historical assignments, resolved
+ * complaints and response/resolution times.
+ */
+export async function getStaffPerformance(
+  staffId: string,
+  accessToken: string
+): Promise<StaffPerformanceResponse> {
+  return apiRequest<StaffPerformanceResponse>(
+    `/api/users/staff/${encodeURIComponent(staffId)}/performance`,
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}

@@ -50,6 +50,7 @@ import { AnalyticsPage } from "./pages/admin/AnalyticsPage";
 import { AdminAssignmentLive } from "./pages/admin/AdminAssignmentLive";
 import { DepartmentsPage } from "./pages/admin/DepartmentsPage";
 import { AdminStaffLive } from "./pages/admin/AdminStaffLive";
+import { AdminStaffDetailsPage } from "./pages/admin/AdminStaffDetailsPage";
 import { EscalationsPage } from "./pages/admin/EscalationsPage";
 
 function RequireRole({ role, children }: { role: 'citizen' | 'staff' | 'admin'; children: React.ReactNode }) {
@@ -133,6 +134,7 @@ function AppRoutes() {
         <Route path="assignment" element={<AdminAssignmentLive/>}/>
         <Route path="departments" element={<DepartmentsPage/>}/>
         <Route path="staff" element={<AdminStaffLive/>}/>
+        <Route path="staff/:id" element={<AdminStaffDetailsPage/>}/>
         <Route path="map" element={<CitizenMapPage/>}/>
         <Route path="announcements" element={<AnnouncementsPage/>}/>
         <Route path="analytics" element={<AnalyticsPage/>}/>
