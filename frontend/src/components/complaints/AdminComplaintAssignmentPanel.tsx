@@ -70,7 +70,15 @@ export function AdminComplaintAssignmentPanel({
     getActiveStaff(accessToken)
       .then((data) => {
         if (!cancelled) {
-          setStaff(data.filter((person) => person.isActive));
+          setStaff(data.filter(
+            (person) =>
+              person.isActive &&
+              (
+                !complaint.departmentId ||
+                person.departmentId?.toLowerCase() ===
+                  complaint.departmentId.toLowerCase()
+              )
+          ));
         }
       })
       .catch((err: unknown) => {
@@ -92,6 +100,7 @@ export function AdminComplaintAssignmentPanel({
   }, [
     complaint.id,
     complaint.assignedToUserId,
+    complaint.departmentId,
     accessToken,
     canAssign,
     retryCount,
@@ -160,7 +169,9 @@ export function AdminComplaintAssignmentPanel({
       </h2>
 
       <p className="mt-1 text-xs text-ink-500">
-        Assign or reassign this complaint to an active staff member.
+        {complaint.departmentId
+          ? 'Assign or reassign to active staff in the responsible department.'
+          : 'Assign or reassign this complaint to an active staff member.'}
       </p>
 
       <div className="mt-4 rounded-xl bg-ink-50 p-3 dark:bg-ink-800/50">
@@ -199,7 +210,9 @@ export function AdminComplaintAssignmentPanel({
 
           {!loading && !loadError && staff.length === 0 && (
             <p className="text-sm text-ink-500">
-              No active staff members are available.
+              {complaint.departmentId
+                ? 'No active staff belong to this complaint’s department. Assign staff through Staff Management first.'
+                : 'No active staff members are available.'}
             </p>
           )}
 

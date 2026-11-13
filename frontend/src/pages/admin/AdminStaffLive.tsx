@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowUpRight, Building2 } from 'lucide-react';
+import {
+  getDepartments,
+  type DepartmentApiResponse,
+} from '@/services/departmentService';
 
 import {
   getStaffWorkloads,
@@ -8,6 +13,7 @@ import {
 
 import { AdminStaffCreateControl } from '@/components/admin/AdminStaffCreateControl';
 import { AdminStaffStatusControl } from '@/components/admin/AdminStaffStatusControl';
+import { AdminStaffDepartmentControl } from '@/components/admin/AdminStaffDepartmentControl';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -34,6 +40,12 @@ export function AdminStaffLive() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [filter, setFilter] = useState<StaffFilter>('all');
+
+  const [departments, setDepartments] =
+    useState<DepartmentApiResponse[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentError, setDepartmentError] =
+    useState<string | null>(null);
 
   const [workloads, setWorkloads] = useState<
     Record<string, StaffWorkload>
@@ -81,6 +93,40 @@ export function AdminStaffLive() {
   useEffect(() => {
     let cancelled = false;
 
+    setDepartments([]);
+    setDepartmentError(null);
+    setDepartmentsLoading(true);
+
+    if (!accessToken) {
+      setDepartmentsLoading(false);
+      return;
+    }
+
+    getDepartments(accessToken)
+      .then((data) => {
+        if (!cancelled) setDepartments(data);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setDepartmentError(
+            error instanceof Error
+              ? error.message
+              : 'Could not load departments.'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDepartmentsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, retryCount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
     setWorkloadsLoading(true);
     setWorkloadsError(null);
     setWorkloads({});
@@ -116,6 +162,22 @@ export function AdminStaffLive() {
       cancelled = true;
     };
   }, [accessToken, retryCount]);
+
+  const departmentNames = new Map(
+    departments.map((department) => [
+      department.id,
+      department.name,
+    ])
+  );
+
+  const staffDepartmentName = (person: StaffApiResponse) => {
+    if (!person.departmentId) return 'Unassigned';
+    if (departmentsLoading) return 'Loading...';
+    if (departmentError) return 'Unavailable';
+
+    return departmentNames.get(person.departmentId)
+      ?? 'Unknown department';
+  };
 
   const activeCount = staff.filter(
     (person) => person.isActive
@@ -227,96 +289,162 @@ export function AdminStaffLive() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredStaff.map((person) => (
-            <Card key={person.id} className="p-5 group relative cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg dark:hover:border-primary-700">
-              <Link
-                to={`/admin/staff/${encodeURIComponent(person.id)}`}
-                aria-label={`Open staff profile for ${person.firstName} ${person.lastName}`}
-                className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-              />
+            <Card
+              key={person.id}
+              className="flex h-full flex-col overflow-hidden p-0 transition-colors duration-150 hover:border-primary-200 dark:hover:border-primary-800"
+            >
+              <div className="flex flex-1 flex-col gap-4 p-5">
+                {/* Staff identity */}
+                <div className="flex items-start gap-3">
+                  <div
+                    aria-hidden="true"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-sm font-bold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300"
+                  >
+                    {staffName(person).slice(0, 1).toUpperCase()}
+                  </div>
 
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words text-sm font-semibold text-ink-900 dark:text-ink-100">
-                    {staffName(person)}
-                  </h2>
-                  <p className="mt-1 break-all text-xs text-ink-500">
-                    {person.email}
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to={`/admin/staff/${encodeURIComponent(person.id)}`}
+                      className="block truncate text-sm font-semibold text-ink-900 hover:text-primary-600 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:text-ink-100"
+                      title={staffName(person)}
+                    >
+                      {staffName(person)}
+                    </Link>
+                    <p
+                      className="mt-1 truncate text-xs text-ink-500"
+                      title={person.email}
+                    >
+                      {person.email}
+                    </p>
+                  </div>
+
+                  <span
+                    className={
+                      person.isActive
+                        ? 'shrink-0 rounded-full bg-success-100 px-2.5 py-1 text-xs font-medium text-success-700'
+                        : 'shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-600'
+                    }
+                  >
+                    {person.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                {/* Department membership */}
+                <div className="rounded-xl border border-ink-100 bg-ink-50/70 px-3.5 py-3 dark:border-ink-800 dark:bg-ink-800/40">
+                  <div className="flex items-center gap-2 text-xs font-medium text-ink-500">
+                    <Building2 className="h-4 w-4" aria-hidden="true" />
+                    Department
+                  </div>
+                  <p className="mt-1.5 truncate text-sm font-semibold text-ink-900 dark:text-ink-100">
+                    {staffDepartmentName(person)}
                   </p>
                 </div>
 
-                <span
-                  className={
-                    person.isActive
-                      ? 'shrink-0 rounded-full bg-success-100 px-2 py-1 text-xs font-medium text-success-700'
-                      : 'shrink-0 rounded-full bg-ink-100 px-2 py-1 text-xs font-medium text-ink-600'
-                  }
-                >
-                  {person.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
+                {/* Live workload metrics */}
+                <section aria-label={`Workload for ${staffName(person)}`}>
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Workload overview
+                  </h3>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {[
-                  {
-                    label: 'Total assigned',
-                    value: workloads[person.id.trim().toLowerCase()]
-                      ?.totalAssigned ?? 0,
-                  },
-                  {
-                    label: 'Active assigned',
-                    value: workloads[person.id.trim().toLowerCase()]
-                      ?.activeAssigned ?? 0,
-                  },
-                  {
-                    label: 'In progress',
-                    value: workloads[person.id.trim().toLowerCase()]
-                      ?.inProgress ?? 0,
-                  },
-                  {
-                    label: 'Resolved',
-                    value: workloads[person.id.trim().toLowerCase()]
-                      ?.resolved ?? 0,
-                  },
-                ].map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="rounded-lg bg-ink-50 p-3 dark:bg-ink-800/50"
-                  >
-                    <p className="text-xs text-ink-500">
-                      {metric.label}
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-ink-900 dark:text-ink-100">
-                      {workloadsLoading
-                        ? '—'
-                        : workloadsError
-                          ? 'N/A'
-                          : metric.value}
-                    </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      {
+                        label: 'Total assigned',
+                        value: workloads[person.id.trim().toLowerCase()]
+                          ?.totalAssigned ?? 0,
+                      },
+                      {
+                        label: 'Active assigned',
+                        value: workloads[person.id.trim().toLowerCase()]
+                          ?.activeAssigned ?? 0,
+                      },
+                      {
+                        label: 'In progress',
+                        value: workloads[person.id.trim().toLowerCase()]
+                          ?.inProgress ?? 0,
+                      },
+                      {
+                        label: 'Resolved',
+                        value: workloads[person.id.trim().toLowerCase()]
+                          ?.resolved ?? 0,
+                      },
+                    ].map((metric) => (
+                      <div
+                        key={metric.label}
+                        className="min-h-20 rounded-xl bg-ink-50 px-3 py-3 dark:bg-ink-800/50"
+                      >
+                        <p className="text-xs text-ink-500">
+                          {metric.label}
+                        </p>
+                        <p className="mt-2 text-xl font-semibold tabular-nums text-ink-900 dark:text-ink-100">
+                          {workloadsLoading
+                            ? '—'
+                            : workloadsError
+                              ? 'N/A'
+                              : metric.value}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </section>
 
-              <div className="mt-4 border-t border-ink-100 pt-3 text-xs text-ink-500 dark:border-ink-800">
-                <p>
-                  Created:{' '}
-                  {new Date(person.createdAtUtc).toLocaleDateString('en-GB')}
-                </p>
-                <p className="mt-1 break-all">
-                  Staff ID: {person.id}
-                </p>
-              </div>
+                {/* Compact account details */}
+                <div className="mt-auto flex items-center justify-between gap-3 border-t border-ink-100 pt-3 text-xs text-ink-500 dark:border-ink-800">
+                  <span>
+                    Joined{' '}
+                    {new Date(person.createdAtUtc).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
 
-              {accessToken && (
-                <div className="relative z-20 mt-4 flex flex-wrap items-center justify-end gap-2 border-t border-ink-100 pt-3 dark:border-ink-800">
-                  <AdminStaffStatusControl
-                    staff={person}
-                    accessToken={accessToken}
-                    onUpdated={() =>
-                      setRetryCount((count) => count + 1)
-                    }
-                  />
+                  <span
+                    className="font-mono"
+                    title={`Full staff ID: ${person.id}`}
+                  >
+                    ID: {person.id.slice(0, 8)}…
+                  </span>
                 </div>
-              )}
+              </div>
+
+              {/* Independent footer actions */}
+              <div className="space-y-3 border-t border-ink-100 bg-ink-50/40 px-5 py-3 dark:border-ink-800 dark:bg-ink-800/20">
+                <Link
+                  to={`/admin/staff/${encodeURIComponent(person.id)}`}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
+                >
+                  View staff profile
+                  <ArrowUpRight
+                    className="h-3.5 w-3.5"
+                    aria-hidden="true"
+                  />
+                </Link>
+
+                {accessToken && (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <AdminStaffDepartmentControl
+                      staff={person}
+                      departments={departments}
+                      departmentsLoading={departmentsLoading}
+                      departmentsError={departmentError}
+                      accessToken={accessToken}
+                      onUpdated={() =>
+                        setRetryCount((count) => count + 1)
+                      }
+                    />
+
+                    <AdminStaffStatusControl
+                      staff={person}
+                      accessToken={accessToken}
+                      onUpdated={() =>
+                        setRetryCount((count) => count + 1)
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </Card>
           ))}
         </div>

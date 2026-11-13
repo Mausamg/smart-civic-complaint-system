@@ -9,6 +9,7 @@ export interface StaffApiResponse {
   lastName: string;
   email: string;
   isActive: boolean;
+  departmentId: string | null;
   createdAtUtc: string;
 }
 
@@ -87,6 +88,25 @@ export async function updateStaffActiveStatus(
       json: {
         isActive,
       },
+    }
+  );
+}
+
+/**
+ * Admin-only staff department assignment.
+ * Passing null clears department membership.
+ */
+export async function updateStaffDepartment(
+  staffId: string,
+  departmentId: string | null,
+  accessToken: string
+): Promise<StaffApiResponse> {
+  return apiRequest<StaffApiResponse>(
+    `/api/users/staff/${encodeURIComponent(staffId)}/department`,
+    {
+      method: 'PATCH',
+      token: accessToken,
+      json: { departmentId },
     }
   );
 }

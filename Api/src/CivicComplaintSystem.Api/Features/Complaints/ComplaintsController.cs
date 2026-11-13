@@ -667,6 +667,17 @@ public sealed class ComplaintsController(
                     "The selected staff member is inactive."
             });
 
+        // Prevent cross-department staff assignments.
+        // Unrouted complaints retain legacy assignment behaviour.
+        if (complaint.DepartmentId.HasValue &&
+            staff.DepartmentId != complaint.DepartmentId)
+            return BadRequest(new
+            {
+                message =
+                    "The selected staff member must belong " +
+                    "to the complaint's responsible department."
+            });
+
         if (!TryGetCurrentUserId(
                 out var currentUserId))
             return Unauthorized(new

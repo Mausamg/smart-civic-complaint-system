@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Form';
+import { useApp } from '@/context/AppContext';
 
 import {
   updateComplaintDepartment,
@@ -25,6 +26,8 @@ export function AdminComplaintDepartmentPanel({
   accessToken,
   onUpdated,
 }: Props) {
+  const { addToast } = useApp();
+
   const [departments, setDepartments] =
     useState<DepartmentApiResponse[]>([]);
 
@@ -37,14 +40,12 @@ export function AdminComplaintDepartmentPanel({
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   // Synchronise the selector after the parent reloads
   // the complaint or navigates to another complaint.
   useEffect(() => {
     setSelectedId(complaint.departmentId ?? '');
     setSaveError(null);
-    setNotice(null);
   }, [complaint.id, complaint.departmentId]);
 
   // Departments come from the authenticated Admin API.
@@ -111,7 +112,6 @@ export function AdminComplaintDepartmentPanel({
 
     setSaving(true);
     setSaveError(null);
-    setNotice(null);
 
     try {
       await updateComplaintDepartment(
@@ -120,7 +120,12 @@ export function AdminComplaintDepartmentPanel({
         accessToken
       );
 
-      setNotice('Department assignment saved successfully.');
+      addToast({
+        type: 'success',
+        title: 'Department assigned',
+        message: 'Responsible department updated successfully.',
+      });
+
       onUpdated();
     } catch (error: unknown) {
       setSaveError(
@@ -173,7 +178,6 @@ export function AdminComplaintDepartmentPanel({
               onChange={(event) => {
                 setSelectedId(event.target.value);
                 setSaveError(null);
-                setNotice(null);
               }}
             />
 
@@ -222,14 +226,6 @@ export function AdminComplaintDepartmentPanel({
           </p>
         )}
 
-        {notice && (
-          <p
-            role="status"
-            className="mt-3 text-sm text-success-600"
-          >
-            {notice}
-          </p>
-        )}
       </CardBody>
     </Card>
   );
