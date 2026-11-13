@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+
 import {
   Area,
   AreaChart,
@@ -13,28 +14,70 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
 import {
+  getDashboardWeeklyTrend,
   getDashboardMonthlyTrend,
-  type DashboardMonthlyTrendResponse,
+  getDashboardYearlyTrend,
 } from '@/services/dashboardService';
 
 interface Props {
   accessToken: string | null;
 }
 
-function formatMonth(year: number, month: number): string {
-  const date = new Date(Date.UTC(year, month - 1, 1));
+type Period = 'weekly' | 'monthly' | 'yearly';
 
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  });
+interface TrendPoint {
+  period: string;
+  submitted: number;
 }
 
-export function AdminMonthlyTrendChart({ accessToken }: Props) {
-  const [trend, setTrend] =
-    useState<DashboardMonthlyTrendResponse[]>([]);
+const periods: Array<{
+  value: Period;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'weekly',
+    label: 'Weekly',
+    description: 'Last 6 weeks',
+  },
+  {
+    value: 'monthly',
+    label: 'Monthly',
+    description: 'Last 6 months',
+  },
+  {
+    value: 'yearly',
+    label: 'Yearly',
+    description: 'Last 5 calendar years',
+  },
+];
 
+function formatMonth(year: number, month: number): string {
+  return new Date(Date.UTC(year, month - 1, 1))
+    .toLocaleDateString('en-GB', {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+}
+
+function formatWeek(weekStart: string): string {
+  const date = new Date(weekStart);
+
+  return Number.isNaN(date.getTime())
+    ? weekStart
+    : date.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        timeZone: 'UTC',
+      });
+}
+
+export function AdminMonthlyTrendChart({
+  accessToken,
+}: Props) {
+  const [period, setPeriod] = useState<Period>('monthly');
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -42,83 +85,138 @@ export function AdminMonthlyTrendChart({ accessToken }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    setTrend([]);
     setLoading(true);
     setError(null);
+    setTrend([]);
 
     if (!accessToken) {
-      setLoading(false);
       setError('Please sign in to view complaint trends.');
+      setLoading(false);
 
       return () => {
         cancelled = true;
       };
     }
 
-    getDashboardMonthlyTrend(accessToken)
-      .then((data) => {
-        if (!cancelled) setTrend(data);
-      })
-      .catch((err: unknown) => {
+    const load = async (token: string) => {
+      try {
+        let points: TrendPoint[];
+
+        if (period === 'weekly') {
+          const data = await getDashboardWeeklyTrend(token);
+
+          points = data.map((item) => ({
+            period: formatWeek(item.weekStart),
+            submitted: item.count,
+          }));
+        } else if (period === 'yearly') {
+          const data = await getDashboardYearlyTrend(token);
+
+          points = data
+            .sort((a, b) => a.year - b.year)
+            .map((item) => ({
+              period: String(item.year),
+              submitted: item.count,
+            }));
+        } else {
+          const data = await getDashboardMonthlyTrend(token);
+
+          points = data
+            .sort(
+              (a, b) =>
+                a.year - b.year || a.month - b.month
+            )
+            .map((item) => ({
+              period: formatMonth(item.year, item.month),
+              submitted: item.count,
+            }));
+        }
+
+        if (!cancelled) setTrend(points);
+      } catch (err: unknown) {
         if (!cancelled) {
           setError(
             err instanceof Error
               ? err.message
-              : 'Unable to load monthly complaint trends.'
+              : 'Unable to load complaint trends.'
           );
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    };
+
+    void load(accessToken);
 
     return () => {
       cancelled = true;
     };
-  }, [accessToken, retryCount]);
+  }, [accessToken, period, retryCount]);
 
-  const chartData = [...trend]
-    .sort((a, b) => a.year - b.year || a.month - b.month)
-    .map((item) => ({
-      month: formatMonth(item.year, item.month),
-      submitted: item.count,
-    }));
-
-  const hasSubmissions = chartData.some(
+  const hasSubmissions = trend.some(
     (item) => item.submitted > 0
   );
 
+  const currentPeriod = periods.find(
+    (item) => item.value === period
+  )!;
+
   return (
     <Card className="p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-          Complaint trends
-        </h3>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+            Complaint trends
+          </h3>
 
-        <span className="text-xs text-ink-400">
-          Monthly submissions
-        </span>
+          <p className="mt-1 text-xs text-ink-500">
+            {currentPeriod.description} · Submitted complaints
+          </p>
+        </div>
+
+        <div
+          role="group"
+          aria-label="Complaint trend period"
+          className="inline-flex rounded-xl border border-ink-200 bg-ink-50 p-1 dark:border-ink-700 dark:bg-ink-800"
+        >
+          {periods.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={period === item.value}
+              onClick={() => setPeriod(item.value)}
+              className={
+                'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ' +
+                (period === item.value
+                  ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-700 dark:text-primary-300'
+                  : 'text-ink-500 hover:text-ink-900 dark:hover:text-ink-100')
+              }
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading && (
         <p role="status" className="mt-4 text-sm text-ink-500">
-          Loading complaint trends...
+          Loading {period} complaint trends...
         </p>
       )}
 
       {!loading && error && (
         <div role="alert" className="mt-4 space-y-3">
-          <p className="text-sm text-error-600">{error}</p>
+          <p className="text-sm text-error-600">
+            {error}
+          </p>
 
-          {accessToken && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRetryCount((count) => count + 1)}
-            >
-              Retry
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRetryCount((n) => n + 1)}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
@@ -131,14 +229,11 @@ export function AdminMonthlyTrendChart({ accessToken }: Props) {
       {!loading && !error && hasSubmissions && (
         <div className="mt-4 h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
+            <AreaChart data={trend}>
               <defs>
                 <linearGradient
-                  id="adminMonthlyReal"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
+                  id="adminTrendPeriodFill"
+                  x1="0" y1="0" x2="0" y2="1"
                 >
                   <stop
                     offset="0%"
@@ -160,7 +255,7 @@ export function AdminMonthlyTrendChart({ accessToken }: Props) {
               />
 
               <XAxis
-                dataKey="month"
+                dataKey="period"
                 tick={{ fontSize: 10, fill: '#67718c' }}
                 axisLine={false}
                 tickLine={false}
@@ -187,7 +282,7 @@ export function AdminMonthlyTrendChart({ accessToken }: Props) {
                 name="Submitted"
                 stroke="#3478f6"
                 strokeWidth={2}
-                fill="url(#adminMonthlyReal)"
+                fill="url(#adminTrendPeriodFill)"
               />
             </AreaChart>
           </ResponsiveContainer>

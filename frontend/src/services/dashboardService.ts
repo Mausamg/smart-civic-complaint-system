@@ -105,6 +105,28 @@ export async function getDashboardMonthlyTrend(
   );
 }
 
+
+/**
+ * Yearly complaint submission totals for the latest five
+ * calendar years. Staff data is scoped by the backend.
+ */
+export interface DashboardYearlyTrendResponse {
+  year: number;
+  count: number;
+}
+
+export async function getDashboardYearlyTrend(
+  accessToken: string
+): Promise<DashboardYearlyTrendResponse[]> {
+  return apiRequest<DashboardYearlyTrendResponse[]>(
+    '/api/dashboard/yearly-trend',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
 /**
  * Complaint counts grouped by category.
  */
@@ -138,10 +160,13 @@ export interface DashboardStatusResponse {
 }
 
 export async function getDashboardStatusBreakdown(
-  accessToken: string
+  accessToken: string,
+  period?: 'weekly' | 'monthly' | 'yearly'
 ): Promise<DashboardStatusResponse[]> {
+  const suffix = period ? `?period=${period}` : '';
+
   return apiRequest<DashboardStatusResponse[]>(
-    '/api/dashboard/status-breakdown',
+    `/api/dashboard/status-breakdown${suffix}`,
     {
       method: 'GET',
       token: accessToken,

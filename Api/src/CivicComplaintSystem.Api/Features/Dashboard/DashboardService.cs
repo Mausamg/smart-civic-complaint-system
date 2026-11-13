@@ -126,7 +126,8 @@ public sealed class DashboardService(
         GetStatusBreakdownAsync(
             Guid userId,
             bool isAdmin,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            DateTime? createdFromUtc = null)
     {
         var query = context.Complaints
             .AsNoTracking()
@@ -135,6 +136,14 @@ public sealed class DashboardService(
         if (!isAdmin)
             query = query.Where(complaint =>
                 complaint.AssignedToUserId == userId);
+
+        if (createdFromUtc.HasValue)
+        {
+            var cutoff = createdFromUtc.Value;
+
+            query = query.Where(complaint =>
+                complaint.CreatedAt >= cutoff);
+        }
 
         return await query
             .GroupBy(complaint =>
@@ -180,6 +189,52 @@ public sealed class DashboardService(
                     CreatedAt = complaint.CreatedAt
                 })
             .ToListAsync(cancellationToken);
+    }
+
+
+
+    public async Task<List<DashboardYearlyTrendResponse>>
+        GetYearlyTrendAsync(
+            Guid userId,
+            bool isAdmin,
+            CancellationToken cancellationToken)
+    {
+        var currentYear = DateTime.UtcNow.Year;
+        var firstYear = currentYear - 4;
+
+        var startDate = new DateTime(
+            firstYear, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var endDate = new DateTime(
+            currentYear + 1, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var query = context.Complaints
+            .AsNoTracking()
+            .Where(complaint =>
+                complaint.CreatedAt >= startDate &&
+                complaint.CreatedAt < endDate);
+
+        if (!isAdmin)
+            query = query.Where(complaint =>
+                complaint.AssignedToUserId == userId);
+
+        var grouped = await query
+            .GroupBy(complaint => complaint.CreatedAt.Year)
+            .Select(group => new
+            {
+                Year = group.Key,
+                Count = group.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        return Enumerable.Range(firstYear, 5)
+            .Select(year => new DashboardYearlyTrendResponse
+            {
+                Year = year,
+                Count = grouped.FirstOrDefault(
+                    item => item.Year == year)?.Count ?? 0
+            })
+            .ToList();
     }
 
 

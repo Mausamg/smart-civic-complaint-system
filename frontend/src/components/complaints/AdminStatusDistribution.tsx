@@ -39,7 +39,20 @@ function getStatusColor(value: string): string {
   return statusColors[normalized] ?? '#64748b';
 }
 
+type StatusPeriod = 'weekly' | 'monthly' | 'yearly';
+
+const statusPeriods: Array<{
+  value: StatusPeriod;
+  label: string;
+  description: string;
+}> = [
+  { value: 'weekly', label: 'Weekly', description: 'Last 7 days' },
+  { value: 'monthly', label: 'Monthly', description: 'Last 30 days' },
+  { value: 'yearly', label: 'Yearly', description: 'Last 365 days' },
+];
+
 export function AdminStatusDistribution({ accessToken }: Props) {
+  const [period, setPeriod] = useState<StatusPeriod>('yearly');
   const [statuses, setStatuses] =
     useState<DashboardStatusResponse[]>([]);
 
@@ -63,7 +76,7 @@ export function AdminStatusDistribution({ accessToken }: Props) {
       };
     }
 
-    getDashboardStatusBreakdown(accessToken)
+    getDashboardStatusBreakdown(accessToken, period)
       .then((data) => {
         if (!cancelled) setStatuses(data);
       })
@@ -83,7 +96,7 @@ export function AdminStatusDistribution({ accessToken }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, retryCount]);
+  }, [accessToken, period, retryCount]);
 
   const chartData = statuses
     .filter((item) => item.count > 0)
@@ -95,9 +108,39 @@ export function AdminStatusDistribution({ accessToken }: Props) {
 
   return (
     <Card className="p-5">
-      <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-        Status distribution
-      </h3>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+            Status distribution
+          </h3>
+          <p className="mt-1 text-xs text-ink-500">
+            {statusPeriods.find((item) => item.value === period)?.description}
+          </p>
+        </div>
+
+        <div
+          role="group"
+          aria-label="Status distribution period"
+          className="inline-flex rounded-xl border border-ink-200 bg-ink-50 p-1 dark:border-ink-700 dark:bg-ink-800"
+        >
+          {statusPeriods.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={period === item.value}
+              onClick={() => setPeriod(item.value)}
+              className={
+                'rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ' +
+                (period === item.value
+                  ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-700 dark:text-primary-300'
+                  : 'text-ink-500 hover:text-ink-900 dark:hover:text-ink-100')
+              }
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {loading && (
         <p role="status" className="mt-4 text-sm text-ink-500">
@@ -123,7 +166,7 @@ export function AdminStatusDistribution({ accessToken }: Props) {
 
       {!loading && !error && chartData.length === 0 && (
         <p className="mt-4 text-sm text-ink-500">
-          No complaint statuses to display.
+          No complaint statuses in this reporting period.
         </p>
       )}
 
