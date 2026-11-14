@@ -1,5 +1,6 @@
 using CivicComplaintSystem.Api.Features.Complaints;
 using CivicComplaintSystem.Api.Features.Departments;
+using CivicComplaintSystem.Api.Features.Announcements;
 using CivicComplaintSystem.Api.Features.Complaints.Attachments;
 using CivicComplaintSystem.Api.Features.Notifications;
 using CivicComplaintSystem.Api.Features.Users;
@@ -20,6 +21,12 @@ public class AppDbContext
 
     public DbSet<Complaint> Complaints =>
         Set<Complaint>();
+
+    public DbSet<Announcement> Announcements =>
+        Set<Announcement>();
+
+    public DbSet<AnnouncementRead> AnnouncementReads =>
+        Set<AnnouncementRead>();
 
     public DbSet<Department> Departments =>
         Set<Department>();
@@ -45,6 +52,53 @@ public class AppDbContext
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+
+        builder.Entity<AnnouncementRead>()
+            .HasKey(r => new
+            {
+                r.UserId,
+                r.AnnouncementId
+            });
+
+        builder.Entity<AnnouncementRead>()
+            .HasOne(r => r.User)
+            .WithMany()
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<AnnouncementRead>()
+            .HasOne(r => r.Announcement)
+            .WithMany()
+            .HasForeignKey(r => r.AnnouncementId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Announcement>()
+            .Property(a => a.LocationScope)
+            .HasDefaultValue("all");
+
+        builder.Entity<Announcement>()
+            .HasIndex(a => new
+            {
+                a.LocationScope,
+                a.Country,
+                a.Province,
+                a.District,
+                a.Municipality
+            });
+
+        builder.Entity<Announcement>()
+            .HasOne(a => a.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(a => a.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Announcement>()
+            .HasIndex(a => new
+            {
+                a.IsPublished,
+                a.PublishedAtUtc
+            });
 
         builder.Entity<Department>()
             .HasIndex(d => d.NormalizedName)

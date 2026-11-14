@@ -1,5 +1,9 @@
 import { useApp } from '@/context/AppContext';
 import {
+  ANNOUNCEMENTS_CHANGED_EVENT,
+  getUnreadAnnouncementCount,
+} from '@/services/announcementService';
+import {
   getMyNotifications,
   NOTIFICATIONS_CHANGED_EVENT,
   type NotificationApiResponse,
@@ -163,6 +167,9 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
   const [staffNotifications, setStaffNotifications] =
     useState<NotificationApiResponse[]>([]);
 
+  const [unreadAnnouncements, setUnreadAnnouncements] =
+    useState(0);
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -237,6 +244,75 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
 
 
 
+  useEffect(() => {
+    if (role !== 'citizen' || !accessToken) {
+      setUnreadAnnouncements(0);
+      return;
+    }
+
+    let cancelled = false;
+    let requestId = 0;
+
+    const refreshAnnouncements = () => {
+      const currentRequest = ++requestId;
+
+      getUnreadAnnouncementCount(accessToken)
+        .then((count) => {
+          if (!cancelled && currentRequest === requestId) {
+            setUnreadAnnouncements(count);
+          }
+        })
+        .catch(() => {
+          if (!cancelled && currentRequest === requestId) {
+            setUnreadAnnouncements(0);
+          }
+        });
+    };
+
+    // Fetch immediately on citizen login.
+    refreshAnnouncements();
+
+    // Check for newly published notices every 30 seconds.
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshAnnouncements();
+      }
+    }, 30000);
+
+    // Update immediately after an announcement is read.
+    window.addEventListener(
+      ANNOUNCEMENTS_CHANGED_EVENT,
+      refreshAnnouncements
+    );
+
+    // Refresh when returning to the browser tab.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAnnouncements();
+      }
+    };
+
+    document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollId);
+
+      window.removeEventListener(
+        ANNOUNCEMENTS_CHANGED_EVENT,
+        refreshAnnouncements
+      );
+
+      document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange
+      );
+    };
+  }, [role, accessToken]);
+
   if (!role || !user) return null;
   const unread = staffNotifications.filter(
     (n) => !n.isRead
@@ -257,9 +333,11 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
         items: section.items.map((item) =>
           item.to === `/${role}/notifications`
             ? { ...item, badge: unread }
-            : item.to === '/staff/messages'
-              ? { ...item, badge: unreadCitizenReplies }
-              : item
+            : item.to === '/citizen/announcements'
+              ? { ...item, badge: unreadAnnouncements }
+              : item.to === '/staff/messages'
+                ? { ...item, badge: unreadCitizenReplies }
+                : item
         ),
       }))
     : navByRole[role];
