@@ -42,6 +42,10 @@ public sealed class Complaint
 
     public double? Longitude { get; set; }
 
+    // Explicit administrative approval is required
+    // before a complaint can appear on the public map.
+    public bool IsPublicMapApproved { get; set; } = false;
+
     public DateTime CreatedAt { get; set; }
         = DateTime.UtcNow;
 
