@@ -12,6 +12,8 @@ public sealed class StaffResponse
 
     public bool IsActive { get; init; }
 
+    public Guid? DepartmentId { get; init; }
+
     public DateTimeOffset CreatedAtUtc { get; init; }
 }
 

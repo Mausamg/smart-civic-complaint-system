@@ -1,12 +1,15 @@
 import { useApp } from '@/context/AppContext';
-import { notifications as allNotifications } from '@/data/mockData';
+import {
+  ANNOUNCEMENTS_CHANGED_EVENT,
+  getUnreadAnnouncementCount,
+} from '@/services/announcementService';
 import {
   getMyNotifications,
   NOTIFICATIONS_CHANGED_EVENT,
   type NotificationApiResponse,
 } from '@/services/notificationService';
 import type { UserRole } from '@/types';
-import { cn,timeAgo } from '@/utils/format';
+import { cn } from '@/utils/format';
 import {
   AlertTriangle,
   Bell,
@@ -164,14 +167,14 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
   const [staffNotifications, setStaffNotifications] =
     useState<NotificationApiResponse[]>([]);
 
+  const [unreadAnnouncements, setUnreadAnnouncements] =
+    useState(0);
+
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (
-      (role !== 'staff' && role !== 'citizen') ||
-      !accessToken
-    ) {
+    if (!role || !accessToken) {
       setStaffNotifications([]);
       return;
     }
@@ -241,10 +244,79 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
 
 
 
+  useEffect(() => {
+    if (role !== 'citizen' || !accessToken) {
+      setUnreadAnnouncements(0);
+      return;
+    }
+
+    let cancelled = false;
+    let requestId = 0;
+
+    const refreshAnnouncements = () => {
+      const currentRequest = ++requestId;
+
+      getUnreadAnnouncementCount(accessToken)
+        .then((count) => {
+          if (!cancelled && currentRequest === requestId) {
+            setUnreadAnnouncements(count);
+          }
+        })
+        .catch(() => {
+          if (!cancelled && currentRequest === requestId) {
+            setUnreadAnnouncements(0);
+          }
+        });
+    };
+
+    // Fetch immediately on citizen login.
+    refreshAnnouncements();
+
+    // Check for newly published notices every 30 seconds.
+    const pollId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        refreshAnnouncements();
+      }
+    }, 30000);
+
+    // Update immediately after an announcement is read.
+    window.addEventListener(
+      ANNOUNCEMENTS_CHANGED_EVENT,
+      refreshAnnouncements
+    );
+
+    // Refresh when returning to the browser tab.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAnnouncements();
+      }
+    };
+
+    document.addEventListener(
+      'visibilitychange',
+      onVisibilityChange
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(pollId);
+
+      window.removeEventListener(
+        ANNOUNCEMENTS_CHANGED_EVENT,
+        refreshAnnouncements
+      );
+
+      document.removeEventListener(
+        'visibilitychange',
+        onVisibilityChange
+      );
+    };
+  }, [role, accessToken]);
+
   if (!role || !user) return null;
-  const unread = role === 'staff' || role === 'citizen'
-    ? staffNotifications.filter((n) => !n.isRead).length
-    : allNotifications.filter((n) => !n.read).length;
+  const unread = staffNotifications.filter(
+    (n) => !n.isRead
+  ).length;
 
   const unreadCitizenReplies = role === 'staff'
     ? staffNotifications.filter(
@@ -261,9 +333,11 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
         items: section.items.map((item) =>
           item.to === `/${role}/notifications`
             ? { ...item, badge: unread }
-            : item.to === '/staff/messages'
-              ? { ...item, badge: unreadCitizenReplies }
-              : item
+            : item.to === '/citizen/announcements'
+              ? { ...item, badge: unreadAnnouncements }
+              : item.to === '/staff/messages'
+                ? { ...item, badge: unreadCitizenReplies }
+                : item
         ),
       }))
     : navByRole[role];
@@ -429,60 +503,38 @@ export function DashboardLayout({ children }: { children?: ReactNode }) {
                       )}
                     </div>
                     <div className="max-h-80 overflow-y-auto scrollbar-thin">
-                      {(role === 'staff' || role === 'citizen') ? (
-                        staffNotifications.length === 0 ? (
-                          <p className="px-4 py-5 text-center text-xs text-ink-500">
-                            No notifications yet.
-                          </p>
-                        ) : (
-                          staffNotifications.slice(0, 5).map((n) => (
-                            <Link
-                              key={n.id}
-                              to={`${notifPrefix}/notifications`}
-                              onClick={() => setNotifOpen(false)}
-                              className={cn(
-                                'flex gap-3 border-b border-ink-50 px-4 py-3 last:border-0 hover:bg-ink-50 dark:border-ink-800/50 dark:hover:bg-ink-800/50',
-                                !n.isRead && 'bg-primary-50/40 dark:bg-primary-950/20'
-                              )}
-                            >
-                              {!n.isRead && (
-                                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />
-                              )}
-
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
-                                  {n.title}
-                                </p>
-
-                                <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">
-                                  {n.message}
-                                </p>
-
-                                <p className="mt-1 text-[10px] text-ink-400">
-                                  {new Date(n.createdAtUtc).toLocaleString()}
-                                </p>
-                              </div>
-                            </Link>
-                          ))
-                        )
+                      {staffNotifications.length === 0 ? (
+                        <p className="px-4 py-5 text-center text-xs text-ink-500">
+                          No notifications yet.
+                        </p>
                       ) : (
-                        <>
-                      {allNotifications.slice(0, 5).map((n) => (
-                        <Link
-                          key={n.id}
-                          to={n.link || '#'}
-                          onClick={() => setNotifOpen(false)}
-                          className={cn('flex gap-3 border-b border-ink-50 px-4 py-3 last:border-0 hover:bg-ink-50 dark:border-ink-800/50 dark:hover:bg-ink-800/50', !n.read && 'bg-primary-50/40 dark:bg-primary-950/20')}
-                        >
-                          {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />}
-                          <div className={cn('min-w-0', n.read && 'pl-5')}>
-                            <p className="text-sm font-medium text-ink-900 dark:text-ink-100">{n.title}</p>
-                            <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">{n.message}</p>
-                            <p className="mt-1 text-[10px] text-ink-400">{timeAgo(n.timestamp)}</p>
-                          </div>
-                        </Link>
-                      ))}
-                        </>
+                        staffNotifications.slice(0, 5).map((n) => (
+                          <Link
+                            key={n.id}
+                            to={`${notifPrefix}/notifications`}
+                            onClick={() => setNotifOpen(false)}
+                            className={cn(
+                              'flex gap-3 border-b border-ink-50 px-4 py-3 last:border-0 hover:bg-ink-50 dark:border-ink-800/50 dark:hover:bg-ink-800/50',
+                              !n.isRead && 'bg-primary-50/40 dark:bg-primary-950/20'
+                            )}
+                          >
+                            {!n.isRead && (
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-500" />
+                            )}
+
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                                {n.title}
+                              </p>
+                              <p className="mt-0.5 line-clamp-2 text-xs text-ink-500">
+                                {n.message}
+                              </p>
+                              <p className="mt-1 text-[10px] text-ink-400">
+                                {new Date(n.createdAtUtc).toLocaleString()}
+                              </p>
+                            </div>
+                          </Link>
+                        ))
                       )}
                     </div>
                     <Link to={`${notifPrefix}/notifications`} onClick={() => setNotifOpen(false)} className="block border-t border-ink-100 px-4 py-2.5 text-center text-xs font-medium text-primary-600 hover:bg-ink-50 dark:border-ink-800 dark:hover:bg-ink-800">

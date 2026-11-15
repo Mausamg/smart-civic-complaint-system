@@ -1,4 +1,5 @@
 import { cn } from '@/utils/format';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useEffect,type ReactNode } from 'react';
 
@@ -28,7 +29,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm animate-fade-in" onClick={onClose} aria-hidden />
       <div className={cn('relative w-full rounded-2xl bg-white shadow-float animate-scale-in dark:bg-ink-900', sizeMap[size])}>
@@ -54,7 +55,8 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

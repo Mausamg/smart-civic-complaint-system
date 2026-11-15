@@ -2,7 +2,7 @@ import {Link} from 'react-router-dom';
 import {Card} from '@/components/ui/Card';
 import type {ComplaintApiResponse} from '@/services/complaintService';
 import {formatDate, timeAgo} from '@/utils/format';
-import {Clock, MapPin} from 'lucide-react';
+import {ArrowUpRight, Clock, MapPin} from 'lucide-react';
 
 interface CitizenComplaintCardProps {
     complaint: ComplaintApiResponse;
@@ -17,10 +17,16 @@ export function CitizenComplaintCard({
     return (
         <Link
             to={`/citizen/complaints/${encodeURIComponent(complaint.id)}`}
-            className="block h-full rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+            className="group block h-full rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
             aria-label={`View complaint: ${complaint.title}`}
         >
-            <Card className="h-full">
+            <Card
+                className="relative h-full overflow-hidden transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:border-primary-300 group-hover:shadow-xl group-focus-visible:border-primary-400 group-focus-visible:shadow-xl motion-reduce:transform-none motion-reduce:transition-none dark:group-hover:border-primary-700"
+            >
+                <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary-500 via-accent-400 to-primary-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
+                />
                 <div className="flex items-center justify-between gap-2 p-4">
         <span
             className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
@@ -41,7 +47,7 @@ export function CitizenComplaintCard({
                         ID: {complaint.id.slice(0, 8)}
                     </p>
 
-                    <h3 className="mt-1 line-clamp-2 text-sm font-semibold text-ink-900 dark:text-ink-100">
+                    <h3 className="mt-1 line-clamp-2 text-sm font-semibold text-ink-900 transition-colors duration-300 group-hover:text-primary-600 group-focus-visible:text-primary-600 dark:text-ink-100 dark:group-hover:text-primary-300 motion-reduce:transition-none">
                         {complaint.title}
                     </h3>
 
@@ -70,9 +76,14 @@ export function CitizenComplaintCard({
           Priority: {complaint.priority}
         </span>
 
-                    <span className="text-xs text-ink-400">
-          Updated {timeAgo(lastUpdate)}
-        </span>
+                    <span className="flex items-center gap-1 text-xs text-ink-400 transition-colors duration-300 group-hover:text-primary-600 group-focus-visible:text-primary-600 dark:group-hover:text-primary-300 motion-reduce:transition-none">
+                      Updated {timeAgo(lastUpdate)}
+
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-focus-visible:-translate-y-0.5 group-focus-visible:translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none"
+                      />
+                    </span>
                 </div>
             </Card>
         </Link>

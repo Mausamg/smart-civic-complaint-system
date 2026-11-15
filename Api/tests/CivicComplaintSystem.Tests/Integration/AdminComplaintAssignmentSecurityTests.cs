@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using CivicComplaintSystem.Api.Data;
 using CivicComplaintSystem.Api.Features.Auth;
 using CivicComplaintSystem.Api.Features.Complaints;
+using CivicComplaintSystem.Api.Features.Departments;
 using CivicComplaintSystem.Api.Features.Users;
 using CivicComplaintSystem.Tests.Infrastructure;
 using Microsoft.AspNetCore.Identity;
@@ -61,9 +62,28 @@ public class AdminComplaintAssignmentSecurityTests
         var ownerId = Guid.NewGuid();
         var staffId = Guid.NewGuid();
         var inactiveStaffId = Guid.NewGuid();
+        var crossDepartmentStaffId = Guid.NewGuid();
+        var noDepartmentStaffId = Guid.NewGuid();
 
         var complaintId = Guid.NewGuid();
         var closedComplaintId = Guid.NewGuid();
+
+        var suffix = Guid.NewGuid().ToString("N");
+
+        Department NewDepartment(string name)
+        {
+            var fullName = $"{name}-{suffix}";
+            return new Department
+            {
+                Id = Guid.NewGuid(),
+                Name = fullName,
+                NormalizedName = fullName.ToUpperInvariant(),
+                IsActive = true
+            };
+        }
+
+        var roads = NewDepartment("Security Roads");
+        var water = NewDepartment("Security Water");
 
         ApplicationUser NewUser(
             Guid id,
@@ -79,6 +99,15 @@ public class AdminComplaintAssignmentSecurityTests
 
         var owner = NewUser(ownerId);
         var staff = NewUser(staffId);
+        staff.DepartmentId = roads.Id;
+
+        var crossDepartmentStaff =
+            NewUser(crossDepartmentStaffId);
+        crossDepartmentStaff.DepartmentId = water.Id;
+
+        var noDepartmentStaff =
+            NewUser(noDepartmentStaffId);
+
         var inactiveStaff = NewUser(
             inactiveStaffId, false);
 
@@ -86,6 +115,9 @@ public class AdminComplaintAssignmentSecurityTests
 
         try
         {
+            db.Departments.AddRange(roads, water);
+            await db.SaveChangesAsync();
+
             async Task CreateUserAsync(
                 ApplicationUser user,
                 string role)
@@ -103,6 +135,10 @@ public class AdminComplaintAssignmentSecurityTests
             await CreateUserAsync(owner, AppRoles.Citizen);
             await CreateUserAsync(staff, AppRoles.Staff);
             await CreateUserAsync(
+                crossDepartmentStaff, AppRoles.Staff);
+            await CreateUserAsync(
+                noDepartmentStaff, AppRoles.Staff);
+            await CreateUserAsync(
                 inactiveStaff, AppRoles.Staff);
 
             db.Complaints.AddRange(
@@ -112,6 +148,7 @@ public class AdminComplaintAssignmentSecurityTests
                     Title = "Broken streetlight",
                     Description = "Assignment test",
                     Category = "Infrastructure",
+                    DepartmentId = roads.Id,
                     Location = "Pokhara",
                     SubmittedByUserId = ownerId,
                     Status = ComplaintStatus.Submitted
@@ -187,6 +224,24 @@ public class AdminComplaintAssignmentSecurityTests
             // Admin cannot assign an inactive staff member.
             using (var response = await AssignAsync(
                 complaintId, inactiveStaffId, adminToken))
+            {
+                Assert.Equal(
+                    HttpStatusCode.BadRequest,
+                    response.StatusCode);
+            }
+
+            // A different department must be rejected.
+            using (var response = await AssignAsync(
+                complaintId, crossDepartmentStaffId, adminToken))
+            {
+                Assert.Equal(
+                    HttpStatusCode.BadRequest,
+                    response.StatusCode);
+            }
+
+            // Unassigned staff department must be rejected.
+            using (var response = await AssignAsync(
+                complaintId, noDepartmentStaffId, adminToken))
             {
                 Assert.Equal(
                     HttpStatusCode.BadRequest,
@@ -273,6 +328,15 @@ public class AdminComplaintAssignmentSecurityTests
                     response.StatusCode);
             }
 
+            // Cross-department reassignment is also rejected.
+            using (var response = await AssignAsync(
+                complaintId, crossDepartmentStaffId, adminToken))
+            {
+                Assert.Equal(
+                    HttpStatusCode.BadRequest,
+                    response.StatusCode);
+            }
+
             // Closed complaints cannot be assigned.
             using (var response = await AssignAsync(
                 closedComplaintId, staffId, adminToken))
@@ -340,6 +404,10 @@ public class AdminComplaintAssignmentSecurityTests
             {
                 await users.DeleteAsync(user);
             }
+
+            await db.Departments
+                .Where(d => d.Id == roads.Id || d.Id == water.Id)
+                .ExecuteDeleteAsync();
         }
     }
 }

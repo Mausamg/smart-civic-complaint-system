@@ -147,6 +147,7 @@ public sealed class StaffService(
             LastName = user.LastName,
             Email = user.Email ?? string.Empty,
             IsActive = user.IsActive,
+            DepartmentId = user.DepartmentId,
             CreatedAtUtc = user.CreateAtUtc
         };
     }

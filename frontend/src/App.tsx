@@ -28,17 +28,14 @@ import {
   SavedDraftsPage,
 } from "./pages/citizen/MiscPages";
 import { MyComplaintsPage } from "./pages/citizen/MyComplaintsPage";
-import { NotificationsPage } from "./pages/citizen/NotificationsPage";
+import { AdminNotificationsPage } from "./pages/admin/AdminNotificationsPage";
 import { CitizenNotificationsPage } from "./pages/citizen/CitizenNotificationsPage";
 import { ProfileSettingsPage } from "./pages/citizen/ProfileSettingsPage";
 import { ReportComplaintPage } from "./pages/citizen/ReportComplaintPage";
 import { PublicMapPage as CitizenMapPage } from "./pages/public/PublicMapPage";
 
 // Staff Pages
-import {
-  StaffAssignedPage,
-  StaffComplaintManagePage,
-} from "./pages/staff/StaffComplaintPage";
+import { StaffAssignedPage } from "./pages/staff/StaffComplaintPage";
 import { StaffDashboard } from "./pages/staff/StaffDashboard";
 import { StaffComplaintDetailsPage } from "./pages/staff/StaffComplaintDetailsPage";
 import { StaffMapPage } from "./pages/staff/StaffMapPage";
@@ -46,11 +43,14 @@ import { StaffNotificationsPage } from "./pages/staff/StaffNotificationsPage";
 import { StaffMessagesPage } from "./pages/staff/StaffMessagesPage";
 
 // Admin Pages
-import { AdminComplaintsPage } from "./pages/admin/AdminComplaintsPage";
+import { AdminComplaintsLive } from "./components/complaints/AdminComplaintsLive";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { AdminComplaintDetailsPage } from "./pages/admin/AdminComplaintDetailsPage";
 import { AnalyticsPage } from "./pages/admin/AnalyticsPage";
-import { AssignmentPage } from "./pages/admin/AssignmentPage";
+import { AdminAssignmentLive } from "./pages/admin/AdminAssignmentLive";
 import { DepartmentsPage } from "./pages/admin/DepartmentsPage";
+import { AdminStaffLive } from "./pages/admin/AdminStaffLive";
+import { AdminStaffDetailsPage } from "./pages/admin/AdminStaffDetailsPage";
 import { EscalationsPage } from "./pages/admin/EscalationsPage";
 
 function RequireRole({ role, children }: { role: 'citizen' | 'staff' | 'admin'; children: React.ReactNode }) {
@@ -129,16 +129,17 @@ function AppRoutes() {
       <Route path="/admin" element={<RequireRole role="admin"><DashboardLayout /></RequireRole>}>
         <Route index element={<Navigate to="/admin/dashboard" replace/>}/>
         <Route path="dashboard" element={<AdminDashboard/>}/>
-        <Route path="complaints" element={<AdminComplaintsPage/>}/>
-        <Route path="complaints/:id" element={<StaffComplaintManagePage/>}/>
-        <Route path="assignment" element={<AssignmentPage/>}/>
+        <Route path="complaints" element={<AdminComplaintsLive/>}/>
+        <Route path="complaints/:id" element={<AdminComplaintDetailsPage/>}/>
+        <Route path="assignment" element={<AdminAssignmentLive/>}/>
         <Route path="departments" element={<DepartmentsPage/>}/>
-        <Route path="staff" element={<DepartmentsPage/>}/>
+        <Route path="staff" element={<AdminStaffLive/>}/>
+        <Route path="staff/:id" element={<AdminStaffDetailsPage/>}/>
         <Route path="map" element={<CitizenMapPage/>}/>
         <Route path="announcements" element={<AnnouncementsPage/>}/>
         <Route path="analytics" element={<AnalyticsPage/>}/>
         <Route path="escalations" element={<EscalationsPage/>}/>
-        <Route path="notifications" element={<NotificationsPage linkPrefix="/admin"/>}/>
+        <Route path="notifications" element={<AdminNotificationsPage/>}/>
         <Route path="profile" element={<ProfileSettingsPage linkPrefix="/admin"/>}/>
         <Route path="settings" element={<ProfileSettingsPage linkPrefix="/admin"/>}/>
         <Route path="help" element={<HelpSupportPage/>}/>

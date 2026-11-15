@@ -143,6 +143,34 @@ public sealed class DashboardController(
     }
     
     
+
+    [HttpGet("yearly-trend")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<List<DashboardYearlyTrendResponse>>>
+        GetYearlyTrend(
+            CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentUserId(out var userId))
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user identity."
+            });
+        }
+
+        var isAdmin = User.IsInRole(AppRoles.Admin);
+
+        var trend = await dashboardService.GetYearlyTrendAsync(
+            userId,
+            isAdmin,
+            cancellationToken);
+
+        return Ok(trend);
+    }
+
+
     [HttpGet("monthly-trend")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -226,6 +254,7 @@ public sealed class DashboardController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<List<DashboardStatusResponse>>>
         GetStatusBreakdown(
+            [FromQuery] string? period,
             CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUserId(
@@ -240,11 +269,35 @@ public sealed class DashboardController(
         var isAdmin =
             User.IsInRole(AppRoles.Admin);
 
+        var selectedPeriod = period?.Trim().ToLowerInvariant();
+
+        if (!string.IsNullOrEmpty(selectedPeriod) &&
+            selectedPeriod != "weekly" &&
+            selectedPeriod != "monthly" &&
+            selectedPeriod != "yearly")
+        {
+            return BadRequest(new
+            {
+                message = "Period must be weekly, monthly, or yearly."
+            });
+        }
+
+        var now = DateTime.UtcNow;
+
+        DateTime? createdFromUtc = selectedPeriod switch
+        {
+            "weekly" => now.AddDays(-7),
+            "monthly" => now.AddDays(-30),
+            "yearly" => now.AddDays(-365),
+            _ => null
+        };
+
         var breakdown =
             await dashboardService.GetStatusBreakdownAsync(
                 userId,
                 isAdmin,
-                cancellationToken);
+                cancellationToken,
+                createdFromUtc);
 
         return Ok(breakdown);
     }

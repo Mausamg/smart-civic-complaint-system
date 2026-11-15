@@ -105,6 +105,28 @@ export async function getDashboardMonthlyTrend(
   );
 }
 
+
+/**
+ * Yearly complaint submission totals for the latest five
+ * calendar years. Staff data is scoped by the backend.
+ */
+export interface DashboardYearlyTrendResponse {
+  year: number;
+  count: number;
+}
+
+export async function getDashboardYearlyTrend(
+  accessToken: string
+): Promise<DashboardYearlyTrendResponse[]> {
+  return apiRequest<DashboardYearlyTrendResponse[]>(
+    '/api/dashboard/yearly-trend',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
 /**
  * Complaint counts grouped by category.
  */
@@ -122,6 +144,51 @@ export async function getDashboardCategoryBreakdown(
 ): Promise<DashboardCategoryResponse[]> {
   return apiRequest<DashboardCategoryResponse[]>(
     '/api/dashboard/category-breakdown',
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
+/**
+ * Complaint counts grouped by status.
+ */
+export interface DashboardStatusResponse {
+  status: string;
+  count: number;
+}
+
+export async function getDashboardStatusBreakdown(
+  accessToken: string,
+  period?: 'weekly' | 'monthly' | 'yearly'
+): Promise<DashboardStatusResponse[]> {
+  const suffix = period ? `?period=${period}` : '';
+
+  return apiRequest<DashboardStatusResponse[]>(
+    `/api/dashboard/status-breakdown${suffix}`,
+    {
+      method: 'GET',
+      token: accessToken,
+    }
+  );
+}
+
+/**
+ * Admin-only complaint resolution metrics.
+ */
+export interface DashboardResolutionMetricsResponse {
+  totalComplaints: number;
+  resolvedComplaints: number;
+  resolutionRate: number;
+  averageResolutionTimeHours: number;
+}
+
+export async function getDashboardResolutionMetrics(
+  accessToken: string
+): Promise<DashboardResolutionMetricsResponse> {
+  return apiRequest<DashboardResolutionMetricsResponse>(
+    '/api/dashboard/resolution-metrics',
     {
       method: 'GET',
       token: accessToken,

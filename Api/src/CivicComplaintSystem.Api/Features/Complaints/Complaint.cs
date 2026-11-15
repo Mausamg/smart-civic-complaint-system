@@ -1,4 +1,5 @@
 using CivicComplaintSystem.Api.Features.Complaints.Attachments;
+using CivicComplaintSystem.Api.Features.Departments;
 using CivicComplaintSystem.Api.Features.Users;
 
 namespace CivicComplaintSystem.Api.Features.Complaints;
@@ -19,6 +20,10 @@ public sealed class Complaint
 
     public required string Category { get; set; }
 
+    public Guid? DepartmentId { get; set; }
+
+    public Department? Department { get; set; }
+
     public required string Location { get; set; }
 
     public string? Subcategory { get; set; }
@@ -36,6 +41,10 @@ public sealed class Complaint
     public double? Latitude { get; set; }
 
     public double? Longitude { get; set; }
+
+    // Explicit administrative approval is required
+    // before a complaint can appear on the public map.
+    public bool IsPublicMapApproved { get; set; } = false;
 
     public DateTime CreatedAt { get; set; }
         = DateTime.UtcNow;
