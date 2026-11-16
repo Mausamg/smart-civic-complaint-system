@@ -23,6 +23,8 @@ public static class ComplaintProjections
                 ObservedAt = c.ObservedAt,
                 AffectedPeopleRange = c.AffectedPeopleRange,
                 IsActive = c.IsActive,
+                IsPublicMapOptedIn = c.IsPublicMapOptedIn,
+                IsPublicMapApproved = c.IsPublicMapApproved,
 
                 Municipality = c.Municipality,
                 Ward = c.Ward,

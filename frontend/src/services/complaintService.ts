@@ -25,6 +25,8 @@ export interface ComplaintApiResponse {
     observedAt: string | null;
     affectedPeopleRange: string | null;
     isActive: boolean | null;
+    isPublicMapOptedIn: boolean;
+    isPublicMapApproved: boolean;
 
     municipality: string | null;
     ward: string | null;
@@ -76,6 +78,32 @@ export async function getComplaintById(
 /**
  * Response from the admin department reassignment endpoint.
  */
+export interface CitizenPublicMapConsentResponse {
+    id: string;
+    isPublicMapOptedIn: boolean;
+    isPublicMapApproved: boolean;
+}
+
+/**
+ * Citizen-only public map consent change.
+ * The backend verifies complaint ownership and
+ * revokes previous approval on every change.
+ */
+export async function setCitizenPublicMapConsent(
+    complaintId: string,
+    optedIn: boolean,
+    accessToken: string
+): Promise<CitizenPublicMapConsentResponse> {
+    return apiRequest<CitizenPublicMapConsentResponse>(
+        `/api/complaints/${encodeURIComponent(complaintId)}/public-map-consent`,
+        {
+            method: 'PATCH',
+            token: accessToken,
+            json: { isPublicMapOptedIn: optedIn },
+        }
+    );
+}
+
 export interface UpdateComplaintDepartmentResponse {
     id: string;
     category: string;
@@ -115,6 +143,7 @@ export interface CreateComplaintRequest {
     observedAt?: string | null;
     affectedPeopleRange?: string | null;
     isActive?: boolean | null;
+    isPublicMapOptedIn: boolean;
 
     municipality?: string | null;
     ward?: string | null;

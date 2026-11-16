@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { useApp } from '@/context/AppContext';
+import { setAdminPublicMapApproval } from '@/services/adminPublicMapService';
 
 import {
   getComplaintById,
@@ -35,6 +36,14 @@ export function AdminComplaintDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [privacyReviewed, setPrivacyReviewed] = useState(false);
+  const [savingApproval, setSavingApproval] = useState(false);
+  const [publicMapError, setPublicMapError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPrivacyReviewed(false);
+    setPublicMapError(null);
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +86,40 @@ export function AdminComplaintDetailsPage() {
       cancelled = true;
     };
   }, [id, accessToken, retryCount]);
+
+  const handleApproval = async (approved: boolean) => {
+    if (!complaint || !accessToken || savingApproval) return;
+
+    if (
+      approved &&
+      (!complaint.isPublicMapOptedIn ||
+        ['Rejected', 'Withdrawn'].includes(complaint.status) ||
+        !privacyReviewed)
+    ) return;
+
+    setSavingApproval(true);
+    setPublicMapError(null);
+
+    try {
+      await setAdminPublicMapApproval(
+        accessToken,
+        complaint.id,
+        approved,
+        approved && privacyReviewed
+      );
+
+      setPrivacyReviewed(false);
+      setRetryCount((count) => count + 1);
+    } catch (err: unknown) {
+      setPublicMapError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to update public map approval.'
+      );
+    } finally {
+      setSavingApproval(false);
+    }
+  };
 
   const breadcrumbs = [
     { label: 'Admin', to: '/admin/dashboard' },
@@ -131,6 +174,91 @@ export function AdminComplaintDetailsPage() {
       {!loading && !error && complaint && (
         <div className="space-y-5">
           <CitizenComplaintDetailsOverview complaint={complaint} />
+
+          <Card className="p-5">
+            <h2 className="text-base font-semibold text-ink-900 dark:text-ink-100">
+              Public map privacy review
+            </h2>
+
+            <p className="mt-3 text-sm">
+              Citizen consent: <strong>
+                {complaint.isPublicMapOptedIn ? 'Opted in' : 'Not provided'}
+              </strong>
+            </p>
+
+            <p className="mt-2 text-sm">
+              Approval: <strong>
+                {complaint.isPublicMapApproved ? 'Approved' : 'Not approved'}
+              </strong>
+            </p>
+
+            <p className="mt-3 text-xs text-ink-500">
+              Review the complaint and evidence for privacy risks.
+              Public sharing reveals approximate location, category,
+              status, municipality, ward and date. It does not
+              include the citizen's name, complaint title,
+              description, evidence or full address.
+            </p>
+
+            {!complaint.isPublicMapOptedIn && (
+              <p className="mt-3 text-sm text-amber-700">
+                Approval unavailable: citizen consent is required.
+              </p>
+            )}
+
+            {['Rejected', 'Withdrawn'].includes(complaint.status) && (
+              <p className="mt-3 text-sm text-amber-700">
+                Rejected or withdrawn complaints cannot be approved.
+              </p>
+            )}
+
+            {complaint.isPublicMapOptedIn &&
+              !complaint.isPublicMapApproved &&
+              !['Rejected', 'Withdrawn'].includes(complaint.status) && (
+                <label className="mt-4 flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={privacyReviewed}
+                    disabled={savingApproval}
+                    onChange={(e) => setPrivacyReviewed(e.target.checked)}
+                  />
+                  <span>
+                    I have reviewed this complaint for safe public disclosure.
+                  </span>
+                </label>
+              )}
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              {!complaint.isPublicMapApproved &&
+                complaint.isPublicMapOptedIn &&
+                !['Rejected', 'Withdrawn'].includes(complaint.status) && (
+                  <Button
+                    disabled={!privacyReviewed || savingApproval}
+                    loading={savingApproval}
+                    onClick={() => void handleApproval(true)}
+                  >
+                    Approve for public map
+                  </Button>
+                )}
+
+              {complaint.isPublicMapApproved && (
+                <Button
+                  variant="outline"
+                  disabled={savingApproval}
+                  loading={savingApproval}
+                  onClick={() => void handleApproval(false)}
+                >
+                  Revoke approval
+                </Button>
+              )}
+            </div>
+
+            {publicMapError && (
+              <p role="alert" className="mt-3 text-sm text-error-600">
+                {publicMapError}
+              </p>
+            )}
+          </Card>
 
           <Card className="p-5">
             <h2 className="text-base font-semibold text-ink-900 dark:text-ink-100">
