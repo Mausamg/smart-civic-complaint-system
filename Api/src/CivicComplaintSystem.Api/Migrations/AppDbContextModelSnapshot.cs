@@ -191,6 +191,9 @@ namespace CivicComplaintSystem.Api.Migrations
                     b.Property<bool>("IsPublicMapApproved")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsPublicMapOptedIn")
+                        .HasColumnType("boolean");
+
                     b.Property<double?>("Latitude")
                         .HasColumnType("double precision");
 

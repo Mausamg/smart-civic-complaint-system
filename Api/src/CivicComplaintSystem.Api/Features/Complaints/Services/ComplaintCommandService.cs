@@ -55,6 +55,7 @@ public sealed class ComplaintCommandService(
             ObservedAt = request.ObservedAt?.UtcDateTime,
             AffectedPeopleRange = request.AffectedPeopleRange?.Trim(),
             IsActive = request.IsActive,
+            IsPublicMapOptedIn = request.IsPublicMapOptedIn,
 
             Municipality = request.Municipality?.Trim(),
             Ward = request.Ward?.Trim(),

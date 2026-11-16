@@ -36,6 +36,7 @@ public sealed class AdminPublicComplaintMapController(
                 c.Latitude,
                 c.Longitude,
                 c.CreatedAt,
+                c.IsPublicMapOptedIn,
                 c.IsPublicMapApproved
             })
             .ToListAsync(cancellationToken);
@@ -53,6 +54,7 @@ public sealed class AdminPublicComplaintMapController(
             c.Latitude,
             c.Longitude,
             c.CreatedAt,
+            c.IsPublicMapOptedIn,
             c.IsPublicMapApproved
         }));
     }
@@ -108,14 +110,43 @@ public sealed class AdminPublicComplaintMapController(
             });
         }
 
-        if (complaint.IsPublicMapApproved !=
-            request.IsApproved.Value)
+        // Administrator approval requires citizen consent.
+        if (request.IsApproved.Value &&
+            !complaint.IsPublicMapOptedIn)
         {
-            complaint.IsPublicMapApproved =
-                request.IsApproved.Value;
+            return BadRequest(new
+            {
+                message =
+                    "Citizen consent is required before " +
+                    "public map approval."
+            });
+        }
 
-            await context.SaveChangesAsync(
+        // Enforce eligibility at the moment of the SQL update.
+        // A concurrent citizen opt-out must prevent approval.
+        var approved = request.IsApproved.Value;
+
+        var affected = await context.Complaints
+            .Where(c =>
+                c.Id == id &&
+                (!approved ||
+                    (c.IsPublicMapOptedIn &&
+                     c.Status != ComplaintStatus.Rejected &&
+                     c.Status != ComplaintStatus.Withdrawn)))
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(
+                    c => c.IsPublicMapApproved,
+                    approved),
                 cancellationToken);
+
+        if (affected != 1)
+        {
+            return Conflict(new
+            {
+                message =
+                    "Complaint is no longer eligible for " +
+                    "public map approval. Refresh and retry."
+            });
         }
 
         Response.Headers.CacheControl = "no-store";
@@ -123,7 +154,7 @@ public sealed class AdminPublicComplaintMapController(
         return Ok(new
         {
             complaint.Id,
-            complaint.IsPublicMapApproved,
+            IsPublicMapApproved = approved,
             Status = complaint.Status.ToString()
         });
     }

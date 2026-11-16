@@ -42,6 +42,10 @@ public sealed class Complaint
 
     public double? Longitude { get; set; }
 
+    // Citizen consent is required for public map visibility.
+    // Private by default, including existing complaints.
+    public bool IsPublicMapOptedIn { get; set; } = false;
+
     // Explicit administrative approval is required
     // before a complaint can appear on the public map.
     public bool IsPublicMapApproved { get; set; } = false;
