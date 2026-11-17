@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { useApp } from '@/context/AppContext';
 import {
   getComplaintById,
+  setCitizenPublicMapConsent,
   type ComplaintApiResponse,
 } from '@/services/complaintService';
 
@@ -25,6 +26,8 @@ export function ComplaintDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [updatingConsent, setUpdatingConsent] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +74,47 @@ export function ComplaintDetailsPage() {
       cancelled = true;
     };
   }, [id, accessToken, retryCount]);
+
+  const handleConsentChange = async (optedIn: boolean) => {
+    if (
+      !complaint ||
+      !accessToken ||
+      !user ||
+      user.id !== complaint.submittedByUserId ||
+      updatingConsent
+    ) {
+      return;
+    }
+
+    setUpdatingConsent(true);
+    setConsentError(null);
+
+    try {
+      const updated = await setCitizenPublicMapConsent(
+        complaint.id,
+        optedIn,
+        accessToken
+      );
+
+      setComplaint((current) =>
+        current?.id === updated.id
+          ? {
+              ...current,
+              isPublicMapOptedIn: updated.isPublicMapOptedIn,
+              isPublicMapApproved: updated.isPublicMapApproved,
+            }
+          : current
+      );
+    } catch (err: unknown) {
+      setConsentError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to update public map consent.'
+      );
+    } finally {
+      setUpdatingConsent(false);
+    }
+  };
 
   const breadcrumbs = [
     { label: 'Dashboard', to: '/citizen/dashboard' },
@@ -171,6 +215,59 @@ export function ComplaintDetailsPage() {
         />
 
         <CitizenComplaintDetailsOverview complaint={complaint} />
+
+        {accessToken && user?.id === complaint.submittedByUserId && (
+          <Card className="mt-4 p-6">
+            <h2 className="text-lg font-semibold text-ink-900 dark:text-ink-100">
+              Public map sharing
+            </h2>
+
+            <p className="mt-2 text-sm text-ink-600 dark:text-ink-300">
+              Sharing is optional. After administrator approval,
+              the public map may show approximate coordinates,
+              category, status, municipality, ward and date.
+              Your name, full address, title, description and
+              evidence are not published.
+            </p>
+
+            <label className="mt-4 flex cursor-pointer items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={complaint.isPublicMapOptedIn}
+                disabled={updatingConsent}
+                onChange={(event) => {
+                  void handleConsentChange(event.target.checked);
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span>
+                I agree to share this complaint on the public map
+                after administrator review.
+              </span>
+            </label>
+
+            <p className="mt-3 text-sm text-ink-600 dark:text-ink-300" aria-live="polite">
+              {updatingConsent
+                ? 'Saving your preference...'
+                : !complaint.isPublicMapOptedIn
+                  ? 'Status: Private'
+                  : complaint.isPublicMapApproved
+                    ? 'Status: Approved for public map sharing'
+                    : 'Status: Awaiting administrator approval'}
+            </p>
+
+            <p className="mt-2 text-xs text-ink-500">
+              You can withdraw consent at any time.
+              Changing consent clears previous administrator approval.
+            </p>
+
+            {consentError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {consentError}
+              </p>
+            )}
+          </Card>
+        )}
 
         {accessToken && (
           <ComplaintConversationPanel

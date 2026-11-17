@@ -47,7 +47,7 @@ const initial: FormState = {
     category: '', subcategory: '', title: '', priority: 'medium',
     description: '', observedAt: '', isActive: true, affected: '',
     lat: null, lng: null, municipality: '', ward: '',
-    street: '', address: '', anonymous: false, isPublic: true, declaration: false,
+    street: '', address: '', anonymous: false, isPublic: false, declaration: false,
 };
 const getLocalDateTimeMax = (): string => {
     const now = new Date();
@@ -264,6 +264,7 @@ export function ReportComplaintPage() {
                     observedAt: observedDate.toISOString(),
                     affectedPeopleRange: form.affected || null,
                     isActive: form.isActive,
+                    isPublicMapOptedIn: form.isPublic,
 
                     municipality: form.municipality.trim(),
                     ward: form.ward.trim() || null,
@@ -619,11 +620,19 @@ export function ReportComplaintPage() {
 
                             <div
                                 className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                                This version saves your complaint title, description, category, full address,
-                                subcategory, observation date and time, affected people range, issue activity status,
-                                municipality, ward, and selected map coordinates. Your requested priority is not
-                                currently saved. Anonymous submission and public visibility settings are not yet supported.
+                                Your complaint details and exact address are saved privately. Public map sharing
+                                is optional. Only approximate location, category, status, municipality, ward and date
+                                may appear publicly after administrator approval. Your name, title, description,
+                                evidence and full address are not shown on the public map.
+                                Requested priority and anonymous submission are not currently supported.
                             </div>
+
+                            <Checkbox
+                                label="Share my complaint on the public map (optional)"
+                                checked={form.isPublic}
+                                onChange={(v) => set('isPublic', v)}
+                                hint="Off by default. Sharing requires administrator review. You can withdraw consent later."
+                            />
 
                             <Checkbox
                                 label={

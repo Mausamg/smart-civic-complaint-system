@@ -25,6 +25,7 @@ public sealed class PublicComplaintMapController(
         var records = await context.Complaints
             .AsNoTracking()
             .Where(c =>
+                c.IsPublicMapOptedIn &&
                 c.IsPublicMapApproved &&
                 c.Status != ComplaintStatus.Withdrawn &&
                 c.Status != ComplaintStatus.Rejected)

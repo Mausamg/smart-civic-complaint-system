@@ -108,10 +108,30 @@ public sealed class PublicComplaintMapSecurityTests
         invalidCoordinates.IsPublicMapApproved = true;
         missingCoordinates.IsPublicMapApproved = true;
 
+        // Approved complaints need citizen opt-in too.
+        foreach (var complaint in new[]
+        {
+            submitted,
+            reviewing,
+            invalidCoordinates,
+            missingCoordinates
+        })
+        {
+            complaint.IsPublicMapOptedIn = true;
+        }
+
         var unapproved = NewComplaint(
             ComplaintStatus.Submitted,
             27.715,
             85.32);
+
+        // Admin approval alone must never publish a complaint.
+        var approvedWithoutConsent = NewComplaint(
+            ComplaintStatus.Submitted,
+            27.718,
+            85.326);
+
+        approvedWithoutConsent.IsPublicMapApproved = true;
 
         var seeded = new[]
         {
@@ -121,7 +141,8 @@ public sealed class PublicComplaintMapSecurityTests
             missingCoordinates,
             rejected,
             withdrawn,
-            unapproved
+            unapproved,
+            approvedWithoutConsent
         };
 
         var ids = seeded.Select(c => c.Id).ToArray();
@@ -172,6 +193,8 @@ public sealed class PublicComplaintMapSecurityTests
             Assert.DoesNotContain(rejected.Id, matching.Keys);
             Assert.DoesNotContain(withdrawn.Id, matching.Keys);
             Assert.DoesNotContain(unapproved.Id, matching.Keys);
+            Assert.DoesNotContain(
+                approvedWithoutConsent.Id, matching.Keys);
 
             // Public response has an explicit field allowlist.
             var allowed = new[]

@@ -17,6 +17,8 @@ public sealed class ComplaintResponse
     public string? AffectedPeopleRange { get; init; }
 
     public bool? IsActive { get; init; }
+    public bool IsPublicMapOptedIn { get; init; }
+    public bool IsPublicMapApproved { get; init; }
 
     public string? Municipality { get; init; }
 

@@ -314,6 +314,29 @@ public sealed class PublicMapApprovalSecurityTests
                     response.StatusCode);
             }
 
+            // Admin approval must not bypass citizen consent.
+            using (var response = await SendAsync(
+                HttpMethod.Patch,
+                ApprovalUrl(eligible.Id),
+                adminToken,
+                new
+                {
+                    isApproved = true,
+                    privacyReviewed = true
+                }))
+            {
+                Assert.Equal(
+                    HttpStatusCode.BadRequest,
+                    response.StatusCode);
+            }
+
+            Assert.False(eligible.IsPublicMapApproved);
+
+            // Seed consent for the successful approval scenario.
+            // Citizen ownership is tested separately.
+            eligible.IsPublicMapOptedIn = true;
+            await db.SaveChangesAsync();
+
             // Valid admin approval.
             for (var attempt = 0; attempt < 2; attempt++)
             {

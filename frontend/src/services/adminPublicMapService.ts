@@ -10,6 +10,7 @@ export interface AdminPublicMapComplaint {
   latitude: number | null;
   longitude: number | null;
   createdAt: string;
+  isPublicMapOptedIn: boolean;
   isPublicMapApproved: boolean;
 }
 

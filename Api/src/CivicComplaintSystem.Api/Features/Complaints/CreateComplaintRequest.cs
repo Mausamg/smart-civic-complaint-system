@@ -30,6 +30,10 @@ public sealed class CreateComplaintRequest : IValidatableObject
 
     public bool? IsActive { get; init; }
 
+    // Citizen opt-in for public map consideration.
+    // Omitted preferences remain private by default.
+    public bool IsPublicMapOptedIn { get; init; } = false;
+
     [Required(ErrorMessage = "Municipality or rural municipality is required.")]
     [StringLength(100)]
     public string? Municipality { get; init; }
