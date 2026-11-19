@@ -8,7 +8,7 @@ import {
   type AdminPublicMapComplaint,
 } from '@/services/adminPublicMapService';
 
-type Filter = 'pending' | 'approved' | 'all';
+type Filter = 'ready' | 'no-consent' | 'approved' | 'all';
 
 interface Props {
   token: string;
@@ -26,7 +26,7 @@ export function AdminPublicMapReview({
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
-  const [filter, setFilter] = useState<Filter>('pending');
+  const [filter, setFilter] = useState<Filter>('ready');
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(4);
 
@@ -34,7 +34,10 @@ export function AdminPublicMapReview({
   const [confirmed, setConfirmed] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -66,17 +69,37 @@ export function AdminPublicMapReview({
     };
   }, [token, reload]);
 
-  const pending = rows.filter(
-    (row) => !row.isPublicMapApproved
+  const ready = rows.filter(
+    (row) =>
+      row.isPublicMapOptedIn &&
+      !row.isPublicMapApproved &&
+      row.status !== 'Rejected' &&
+      row.status !== 'Withdrawn'
   ).length;
 
-  const approved = rows.length - pending;
+  const noConsent = rows.filter(
+    (row) => !row.isPublicMapOptedIn
+  ).length;
+
+  const approved = rows.filter(
+    (row) => row.isPublicMapApproved
+  ).length;
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
 
     return rows.filter((row) => {
-      if (filter === 'pending' && row.isPublicMapApproved) {
+      if (
+        filter === 'ready' &&
+        (!row.isPublicMapOptedIn ||
+          row.isPublicMapApproved ||
+          row.status === 'Rejected' ||
+          row.status === 'Withdrawn')
+      ) {
+        return false;
+      }
+
+      if (filter === 'no-consent' && row.isPublicMapOptedIn) {
         return false;
       }
 
@@ -100,8 +123,14 @@ export function AdminPublicMapReview({
   ) => {
     if (busyId) return;
 
-    if (shouldApprove &&
-        (reviewId !== row.id || !confirmed)) return;
+    if (
+      shouldApprove &&
+      (!row.isPublicMapOptedIn ||
+        row.status === 'Rejected' ||
+        row.status === 'Withdrawn' ||
+        reviewId !== row.id ||
+        !confirmed)
+    ) return;
 
     setBusyId(row.id);
     setActionError(null);
@@ -137,11 +166,12 @@ export function AdminPublicMapReview({
           : 'The complaint is no longer publicly visible.',
       });
     } catch (err: unknown) {
-      setActionError(
-        err instanceof Error
+      setActionError({
+        id: row.id,
+        message: err instanceof Error
           ? err.message
-          : 'Unable to update approval.'
-      );
+          : 'Unable to update approval.',
+      });
     } finally {
       setBusyId(null);
     }
@@ -182,15 +212,11 @@ export function AdminPublicMapReview({
         shelter or another sensitive site.
       </p>
 
-      {actionError && (
-        <p role="alert" className="mt-3 text-xs text-error-600">
-          {actionError}
-        </p>
-      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {([
-          ['pending', `Not approved (${pending})`],
+          ['ready', `Ready for review (${ready})`],
+          ['no-consent', `No consent (${noConsent})`],
           ['approved', `Approved (${approved})`],
           ['all', `All (${rows.length})`],
         ] as const).map(([value, label]) => (
@@ -204,6 +230,7 @@ export function AdminPublicMapReview({
               setReviewId(null);
               setRemoveId(null);
               setConfirmed(false);
+              setActionError(null);
             }}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
               filter === value
@@ -275,15 +302,27 @@ export function AdminPublicMapReview({
                       {row.category} · {row.status}
                     </span>
 
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      row.isPublicMapApproved
-                        ? 'bg-success-50 text-success-700'
-                        : 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300'
-                    }`}>
-                      {row.isPublicMapApproved
-                        ? 'Approved'
-                        : 'Not approved'}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        row.isPublicMapOptedIn
+                          ? 'bg-success-50 text-success-700'
+                          : 'bg-amber-50 text-amber-800'
+                      }`}>
+                        {row.isPublicMapOptedIn
+                          ? 'Consent granted'
+                          : 'No citizen consent'}
+                      </span>
+
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        row.isPublicMapApproved
+                          ? 'bg-success-50 text-success-700'
+                          : 'bg-ink-100 text-ink-600 dark:bg-ink-800 dark:text-ink-300'
+                      }`}>
+                        {row.isPublicMapApproved
+                          ? 'Approved'
+                          : 'Not approved'}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="mt-2 text-sm font-semibold text-ink-900 dark:text-ink-100">
@@ -308,7 +347,28 @@ export function AdminPublicMapReview({
                     Review full complaint details
                   </Link>
 
-                  {!row.isPublicMapApproved && eligible && (
+                  {!row.isPublicMapOptedIn &&
+                    !row.isPublicMapApproved &&
+                    eligible && (
+                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                        Awaiting citizen consent. This complaint cannot
+                        be approved for public display until the citizen
+                        opts in.
+                      </p>
+                    )}
+
+                  {actionError?.id === row.id && (
+                    <p
+                      role="alert"
+                      className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+                    >
+                      {actionError.message}
+                    </p>
+                  )}
+
+                  {!row.isPublicMapApproved &&
+                    row.isPublicMapOptedIn &&
+                    eligible && (
                     <div className="mt-3">
                       {reviewId !== row.id ? (
                         <button
