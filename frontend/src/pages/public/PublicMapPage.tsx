@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Map as LeafletMap } from 'leaflet';
 import {
   CircleMarker,
   MapContainer as LeafletMapContainer,
@@ -67,29 +68,68 @@ function hasCoordinates(item: PublicMapComplaint): boolean {
   );
 }
 
+function fitPublicLocations(
+  map: LeafletMap,
+  positions: Position[]
+) {
+  if (positions.length === 1) {
+    map.setView(positions[0], 12);
+  } else if (positions.length > 1) {
+    map.fitBounds(positions, {
+      padding: [40, 40],
+      maxZoom: 13,
+    });
+  } else {
+    map.setView(NEPAL_CENTER, 7);
+  }
+}
+
 function MapViewport({
   positions,
   selected,
+  focusRequest,
+  frameRequest,
 }: {
   positions: Position[];
   selected: Position | null;
+  focusRequest: number;
+  frameRequest: number;
 }) {
   const map = useMap();
 
+  const initialized = useRef(false);
+  const lastFocusRequest = useRef(focusRequest);
+  const lastFrameRequest = useRef(frameRequest);
+
+  // Initial framing happens once per map mount.
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    fitPublicLocations(map, positions);
+  }, [map, positions]);
+
+  // Only explicit selection should move to a complaint.
+  useEffect(() => {
+    if (lastFocusRequest.current === focusRequest) return;
+
+    lastFocusRequest.current = focusRequest;
+
     if (selected) {
-      map.flyTo(selected, 13, { duration: 0.6 });
-    } else if (positions.length === 1) {
-      map.setView(positions[0], 12);
-    } else if (positions.length > 1) {
-      map.fitBounds(positions, {
-        padding: [40, 40],
-        maxZoom: 13,
-      });
-    } else {
-      map.setView(NEPAL_CENTER, 7);
+      map.flyTo(
+        selected,
+        Math.max(13, map.getZoom()),
+        { duration: 0.5 }
+      );
     }
-  }, [map, positions, selected]);
+  }, [map, selected, focusRequest]);
+
+  // Explicitly fit visible locations when requested.
+  useEffect(() => {
+    if (lastFrameRequest.current === frameRequest) return;
+
+    lastFrameRequest.current = frameRequest;
+    fitPublicLocations(map, positions);
+  }, [map, positions, frameRequest]);
 
   return null;
 }
@@ -100,6 +140,9 @@ export function PublicMapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [frameRequest, setFrameRequest] = useState(0);
+  const hasLoadedRef = useRef(false);
 
   const [view, setView] = useState<View>('split');
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -115,7 +158,6 @@ export function PublicMapPage() {
     let active = true;
     let sequence = 0;
     let controller: AbortController | null = null;
-    let loadedOnce = false;
 
     const load = (initial: boolean) => {
       const current = ++sequence;
@@ -124,7 +166,7 @@ export function PublicMapPage() {
       const next = new AbortController();
       controller = next;
 
-      if (initial) {
+      if (initial && !hasLoadedRef.current) {
         setLoading(true);
         setError(null);
       }
@@ -133,7 +175,7 @@ export function PublicMapPage() {
         .then((data) => {
           if (!active || current !== sequence) return;
 
-          loadedOnce = true;
+          hasLoadedRef.current = true;
           setItems(data);
           setError(null);
         })
@@ -144,7 +186,7 @@ export function PublicMapPage() {
             next.signal.aborted
           ) return;
 
-          if (!loadedOnce) {
+          if (!hasLoadedRef.current) {
             setError(
               err instanceof Error
                 ? err.message
@@ -275,10 +317,12 @@ export function PublicMapPage() {
     setWard('');
     setMappedOnly(false);
     setSelectedId(null);
+    setFrameRequest((count) => count + 1);
   };
 
   const selectComplaint = (item: PublicMapComplaint) => {
     setSelectedId(item.id);
+    setFocusRequest((count) => count + 1);
 
     if (view === 'list' && hasCoordinates(item)) {
       setView('split');
@@ -525,6 +569,21 @@ export function PublicMapPage() {
             )}
           </div>
 
+          {filtered.length === 0 && (
+            <div
+              role="status"
+              className="mb-4 rounded-xl border border-ink-200 bg-white p-5 text-sm dark:border-ink-700 dark:bg-ink-900"
+            >
+              <p className="font-semibold text-ink-900 dark:text-ink-100">
+                No public complaints to display
+              </p>
+              <p className="mt-2 text-ink-500">
+                Only complaints with citizen consent and administrator
+                approval appear here. Try resetting filters if needed.
+              </p>
+            </div>
+          )}
+
           <div className={cn(
             'grid min-w-0 gap-4',
             view === 'split' &&
@@ -621,6 +680,16 @@ export function PublicMapPage() {
                 aria-label="Public map"
                 className="min-w-0 overflow-hidden rounded-2xl border border-ink-200"
               >
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-3 py-2 text-xs text-ink-600 dark:bg-ink-900 dark:text-ink-300">
+                  <span>{located.length} approximate map locations</span>
+                  <button
+                    type="button"
+                    onClick={() => setFrameRequest((count) => count + 1)}
+                    className="font-semibold text-primary-600 hover:underline"
+                  >
+                    Fit visible locations
+                  </button>
+                </div>
                 <LeafletMapContainer
                   center={NEPAL_CENTER}
                   zoom={7}
@@ -635,6 +704,8 @@ export function PublicMapPage() {
                   <MapViewport
                     positions={positions}
                     selected={selectedPosition}
+                    focusRequest={focusRequest}
+                    frameRequest={frameRequest}
                   />
 
                   {located.map((item) => (
@@ -653,7 +724,7 @@ export function PublicMapPage() {
                         fillOpacity: 0.9,
                       }}
                       eventHandlers={{
-                        click: () => setSelectedId(item.id),
+                        click: () => selectComplaint(item),
                       }}
                     >
                       <Popup>
