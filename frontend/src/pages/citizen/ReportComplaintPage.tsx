@@ -4,12 +4,12 @@ import {FileUploader, type UploadedFile} from '@/components/forms/FileUploader';
 import {CitizenLocationPicker} from '@/components/maps/CitizenLocationPicker';
 import {Button} from '@/components/ui/Button';
 import {Card} from '@/components/ui/Card';
-import {Checkbox, Input, RadioGroup, Select, Textarea} from '@/components/ui/Form';
+import {Checkbox, Input, Select, Textarea} from '@/components/ui/Form';
 import {PageHeader} from '@/components/ui/PageHeader';
 import {CategoryBadge} from '@/components/ui/StatusBadge';
 import {useApp} from '@/context/AppContext';
-import {categoryConfig, categoryOptions, priorityConfig, priorityOptions, subcategories} from '@/data/metadata';
-import type {ComplaintCategory, Priority} from '@/types';
+import {categoryConfig, categoryOptions, subcategories} from '@/data/metadata';
+import type {ComplaintCategory} from '@/types';
 import {cn} from '@/utils/format';
 import {AlertTriangle, Check, ChevronLeft, ChevronRight, FileText, MapPin, Send,} from 'lucide-react';
 import {useEffect,useRef,useState} from 'react';
@@ -27,7 +27,6 @@ interface FormState {
     category: ComplaintCategory | '';
     subcategory: string;
     title: string;
-    priority: Priority;
     description: string;
     observedAt: string;
     isActive: boolean;
@@ -36,7 +35,6 @@ interface FormState {
     lng: number | null;
     municipality: string;
     ward: string;
-    street: string;
     address: string;
     anonymous: boolean;
     isPublic: boolean;
@@ -44,10 +42,10 @@ interface FormState {
 }
 
 const initial: FormState = {
-    category: '', subcategory: '', title: '', priority: 'medium',
+    category: '', subcategory: '', title: '',
     description: '', observedAt: '', isActive: true, affected: '',
     lat: null, lng: null, municipality: '', ward: '',
-    street: '', address: '', anonymous: false, isPublic: false, declaration: false,
+    address: '', anonymous: false, isPublic: false, declaration: false,
 };
 const getLocalDateTimeMax = (): string => {
     const now = new Date();
@@ -116,10 +114,6 @@ export function ReportComplaintPage() {
             if (!form.municipality.trim()) {
                 e.municipality =
                     'Enter the municipality or rural municipality';
-            }
-
-            if (!form.street.trim()) {
-                e.street = 'Enter street or landmark';
             }
 
             if (!form.address.trim()) {
@@ -326,7 +320,7 @@ export function ReportComplaintPage() {
         }
     };
     return (
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-4xl">
             <PageHeader title="Report a Complaint" subtitle="Complete the steps below to submit your civic complaint."
                         breadcrumbs={[{label: 'Dashboard', to: '/citizen/dashboard'}, {label: 'Report'}]}/>
 
@@ -402,13 +396,6 @@ export function ReportComplaintPage() {
                         <Input label="Complaint title" required value={form.title}
                                onChange={(e) => set('title', e.target.value)}
                                placeholder="e.g. Large pothole near Chabahil Chowk" error={errors.title}/>
-                        <RadioGroup label="Priority / urgency level" name="priority" value={form.priority}
-                                    onChange={(v) => set('priority', v as Priority)}
-                                    options={priorityOptions.map((p) => ({
-                                        value: p,
-                                        label: priorityConfig[p].label,
-                                        description: p === 'urgent' ? 'Safety risk or major disruption — address within 24h' : p === 'high' ? 'Significant issue affecting many people' : p === 'medium' ? 'Normal concern' : 'Minor issue'
-                                    }))}/>
                     </div>
                 )}
 
@@ -428,7 +415,7 @@ export function ReportComplaintPage() {
                             <p className="mt-1 text-xs text-ink-400">{form.description.length} characters · minimum
                                 20</p>
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
+                        <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2 sm:items-start">
                             <Input label="Date and time observed" type="datetime-local" max={getLocalDateTimeMax()}
                                    value={form.observedAt}
                                    onChange={(e) => set('observedAt', e.target.value)} error={errors.observedAt}/>
@@ -463,8 +450,7 @@ export function ReportComplaintPage() {
                         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
                             The map starts in Kathmandu for navigation only. Click the map to select the incident
                             location. If selected, the coordinates will be saved with your complaint. Please also enter
-                            the correct full address. Map selection does not automatically verify the municipality or
-                            ward.
+                            the correct full address. Map selection does not automatically verify the municipality or ward. Authorized administrators and assigned staff can access the exact location to handle your complaint, even when public map sharing is off.
                         </p>
 
                         <CitizenLocationPicker
@@ -525,10 +511,7 @@ export function ReportComplaintPage() {
                                 error={errors.ward}
                             />
                         </div>
-                        <Input label="Street or landmark" required value={form.street}
-                               onChange={(e) => set('street', e.target.value)} placeholder="e.g. Chabahil Chowk"
-                               error={errors.street}/>
-                        <Input label="Full address" required value={form.address}
+                        <Input label="Full address (include street or landmark)" required value={form.address}
                                onChange={(e) => set('address', e.target.value)}
                                placeholder="e.g. Chabahil Chowk, Kathmandu 44600" error={errors.address}/>
                         <p className="rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500 dark:bg-ink-800/50">
@@ -574,11 +557,9 @@ export function ReportComplaintPage() {
                         </div>
                         <div className="space-y-3">
                             <div className="rounded-xl border border-ink-100 p-4 dark:border-ink-800">
-                                <p className="text-xs font-semibold uppercase text-ink-400">Category & priority</p>
+                                <p className="text-xs font-semibold uppercase text-ink-400">Category</p>
                                 <div className="mt-2 flex flex-wrap items-center gap-2">
                                     {form.category && <CategoryBadge category={form.category as ComplaintCategory}/>}
-                                    <span
-                                        className={cn('rounded-full px-2.5 py-0.5 text-xs font-medium', priorityConfig[form.priority].bg, priorityConfig[form.priority].text)}>{priorityConfig[form.priority].label}</span>
                                 </div>
                                 <p className="mt-2 text-sm font-semibold text-ink-900 dark:text-ink-100">{form.title}</p>
                                 <p className="mt-1 text-sm text-ink-600 dark:text-ink-300">{form.subcategory}</p>
@@ -620,11 +601,10 @@ export function ReportComplaintPage() {
 
                             <div
                                 className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
-                                Your complaint details and exact address are saved privately. Public map sharing
-                                is optional. Only approximate location, category, status, municipality, ward and date
+                                Your complaint details and exact address are available to authorized administrators and assigned staff for handling your complaint. Public map sharing is optional. Only approximate location, category, status, municipality, ward and date
                                 may appear publicly after administrator approval. Your name, title, description,
                                 evidence and full address are not shown on the public map.
-                                Requested priority and anonymous submission are not currently supported.
+                                Complaint priority starts at Medium and is managed by administrators. Anonymous submission is not currently supported.
                             </div>
 
                             <Checkbox
