@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
 import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
+import { CitizenIncidentLocationMap } from '@/components/maps/CitizenIncidentLocationMap';
 import { ComplaintConversationPanel } from '@/components/complaints/ComplaintConversationPanel';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -346,6 +347,11 @@ export function ComplaintDetailsPage() {
                       </div>
                   )}
               </dl>
+
+              <CitizenIncidentLocationMap
+                  latitude={complaint.latitude}
+                  longitude={complaint.longitude}
+              />
           </Card>
 
       </div>
