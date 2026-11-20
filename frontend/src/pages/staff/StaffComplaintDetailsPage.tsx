@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
+import { ExactComplaintLocationMap } from '@/components/maps/ExactComplaintLocationMap';
 import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
 import { StaffStatusHistoryPanel } from '@/components/complaints/StaffStatusHistoryPanel';
 import { StaffStatusUpdatePanel } from '@/components/complaints/StaffStatusUpdatePanel';
@@ -162,6 +163,14 @@ export function StaffComplaintDetailsPage() {
           </div>
         </dl>
       </Card>
+
+      <div className="mt-4">
+        <ExactComplaintLocationMap
+          latitude={complaint.latitude}
+          longitude={complaint.longitude}
+          address={complaint.location}
+        />
+      </div>
 
       {accessToken && (
         <ComplaintEvidenceSection

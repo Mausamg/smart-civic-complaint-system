@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  CircleMarker as LeafletCircleMarker,
+  Map as LeafletMap,
+} from 'leaflet';
 import {
   CircleMarker,
   MapContainer as LeafletMapContainer,
@@ -16,18 +20,25 @@ import {
 
 type Position = [number, number];
 
+function fitStaffLocations(
+  map: LeafletMap,
+  positions: Position[]
+) {
+  if (positions.length === 1) {
+    map.setView(positions[0], 14);
+  } else if (positions.length > 1) {
+    map.fitBounds(positions, {
+      padding: [36, 36],
+      maxZoom: 14,
+    });
+  }
+}
+
 function FitMarkers({ positions }: { positions: Position[] }) {
   const map = useMap();
 
   useEffect(() => {
-    if (positions.length === 1) {
-      map.setView(positions[0], 14);
-    } else if (positions.length > 1) {
-      map.fitBounds(positions, {
-        padding: [36, 36],
-        maxZoom: 14,
-      });
-    }
+    fitStaffLocations(map, positions);
   }, [map, positions]);
 
   return null;
@@ -42,6 +53,13 @@ export function StaffMapPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [selectedComplaintId, setSelectedComplaintId] =
+    useState<string | null>(null);
+
+  const mapRef = useRef<LeafletMap | null>(null);
+  const markerRefs = useRef(
+    new Map<string, LeafletCircleMarker>()
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +144,29 @@ export function StaffMapPage() {
       ]),
     [locatedComplaints]
   );
+
+  const focusComplaint = (complaint: ComplaintApiResponse) => {
+    if (!locatedIds.has(complaint.id)) return;
+
+    const position: Position = [
+      complaint.latitude!,
+      complaint.longitude!,
+    ];
+
+    setSelectedComplaintId(complaint.id);
+
+    const map = mapRef.current;
+
+    if (map) {
+      map.flyTo(
+        position,
+        Math.max(15, map.getZoom()),
+        { duration: 0.5 }
+      );
+    }
+
+    markerRefs.current.get(complaint.id)?.openPopup();
+  };
 
   return (
     <div>
@@ -212,6 +253,22 @@ export function StaffMapPage() {
             )}
           </div>
 
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={locatedComplaints.length === 0}
+              onClick={() => {
+                if (mapRef.current) {
+                  fitStaffLocations(mapRef.current, positions);
+                }
+                setSelectedComplaintId(null);
+              }}
+              className="text-sm font-semibold text-primary-600 hover:underline disabled:opacity-50"
+            >
+              Fit visible locations
+            </button>
+          </div>
+
           <div className="grid gap-4 xl:grid-cols-3">
             <div className="min-w-0 xl:col-span-2">
           {locatedComplaints.length === 0 ? (
@@ -228,6 +285,7 @@ export function StaffMapPage() {
           ) : (
             <div className="overflow-hidden rounded-2xl border border-ink-200">
               <LeafletMapContainer
+                ref={mapRef}
                 center={[27.7172, 85.3249]}
                 zoom={8}
                 scrollWheelZoom
@@ -243,15 +301,30 @@ export function StaffMapPage() {
                 {locatedComplaints.map((complaint) => (
                   <CircleMarker
                     key={complaint.id}
+                    ref={(marker) => {
+                      if (marker) {
+                        markerRefs.current.set(complaint.id, marker);
+                      } else {
+                        markerRefs.current.delete(complaint.id);
+                      }
+                    }}
+                    eventHandlers={{
+                      click: () => setSelectedComplaintId(complaint.id),
+                    }}
                     center={[
                       complaint.latitude!,
                       complaint.longitude!,
                     ]}
-                    radius={9}
+                    radius={
+                      selectedComplaintId === complaint.id ? 12 : 9
+                    }
                     pathOptions={{
                       color: '#ffffff',
                       weight: 2,
-                      fillColor: '#2563eb',
+                      fillColor:
+                        selectedComplaintId === complaint.id
+                          ? '#f59e0b'
+                          : '#2563eb',
                       fillOpacity: 0.9,
                     }}
                   >
@@ -296,32 +369,46 @@ export function StaffMapPage() {
                 <ul className="max-h-[560px] space-y-3 overflow-y-auto">
                   {filteredComplaints.map((complaint) => (
                     <li key={complaint.id}>
-                      <Link
-                        to={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
-                        className="block rounded-xl border border-ink-200 p-3 transition hover:border-primary-400 hover:bg-primary-50"
+                      <div
+                        className={`rounded-xl border p-3 transition ${
+                          selectedComplaintId === complaint.id
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/20'
+                            : 'border-ink-200 hover:border-primary-400'
+                        }`}
                       >
-                        <h3 className="break-words text-sm font-semibold text-ink-900">
-                          {complaint.title}
-                        </h3>
+                        <button
+                          type="button"
+                          disabled={!locatedIds.has(complaint.id)}
+                          onClick={() => focusComplaint(complaint)}
+                          aria-label={`Focus ${complaint.title} on map`}
+                          className="block w-full cursor-pointer text-left disabled:cursor-default"
+                        >
+                          <h3 className="break-words text-sm font-semibold text-ink-900 dark:text-ink-100">
+                            {complaint.title}
+                          </h3>
 
-                        <p className="mt-2 text-xs text-ink-500">
-                          {complaint.category} · {complaint.status}
-                        </p>
-
-                        <p className="mt-1 text-xs text-ink-600">
-                          {complaint.location}
-                        </p>
-
-                        {!locatedIds.has(complaint.id) && (
-                          <p className="mt-2 text-xs text-amber-700">
-                            No valid map coordinates
+                          <p className="mt-2 text-xs text-ink-500">
+                            {complaint.category} · {complaint.status}
                           </p>
-                        )}
 
-                        <span className="mt-3 inline-block text-xs font-medium text-primary-600">
-                          View complaint →
-                        </span>
-                      </Link>
+                          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">
+                            {complaint.location}
+                          </p>
+
+                          {!locatedIds.has(complaint.id) && (
+                            <p className="mt-2 text-xs text-amber-700">
+                              No valid map coordinates
+                            </p>
+                          )}
+                        </button>
+
+                        <Link
+                          to={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
+                          className="mt-3 inline-block text-xs font-semibold text-primary-600 hover:underline"
+                        >
+                          View full complaint details →
+                        </Link>
+                      </div>
                     </li>
                   ))}
                 </ul>

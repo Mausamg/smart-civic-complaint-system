@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { AdminExactLocationMap } from '@/components/maps/AdminExactLocationMap';
+import { ExactComplaintLocationMap } from '@/components/maps/ExactComplaintLocationMap';
 import { AdminComplaintAssignmentPanel } from '@/components/complaints/AdminComplaintAssignmentPanel';
 import { AdminComplaintDepartmentPanel } from '@/components/complaints/AdminComplaintDepartmentPanel';
 import { AdminComplaintPriorityPanel } from '@/components/complaints/AdminComplaintPriorityPanel';
@@ -176,7 +176,7 @@ export function AdminComplaintDetailsPage() {
         <div className="space-y-5">
           <CitizenComplaintDetailsOverview complaint={complaint} />
 
-          <AdminExactLocationMap
+          <ExactComplaintLocationMap
             latitude={complaint.latitude}
             longitude={complaint.longitude}
             address={complaint.location}
