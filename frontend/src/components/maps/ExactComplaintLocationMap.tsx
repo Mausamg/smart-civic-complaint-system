@@ -4,17 +4,17 @@ import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet';
 
 import { Card } from '@/components/ui/Card';
 
-interface AdminExactLocationMapProps {
+interface ExactComplaintLocationMapProps {
   latitude: number | null;
   longitude: number | null;
   address: string;
 }
 
-export function AdminExactLocationMap({
+export function ExactComplaintLocationMap({
   latitude,
   longitude,
   address,
-}: AdminExactLocationMapProps) {
+}: ExactComplaintLocationMapProps) {
   const mapRef = useRef<LeafletMap | null>(null);
 
   const hasValidCoordinates =
@@ -56,8 +56,8 @@ export function AdminExactLocationMap({
       </h2>
 
       <p className="mt-1 text-sm text-ink-500">
-        Restricted complaint location for authorized administration.
-        This is independent of public map consent.
+        Precise location for users authorized to view this complaint.
+        Public map consent does not affect this private view.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
