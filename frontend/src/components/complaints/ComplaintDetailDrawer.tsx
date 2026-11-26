@@ -85,7 +85,7 @@ export function ComplaintDetailDrawer({ complaint, open, onClose, isPublic }: Pr
         {isPublic && (
           <div className="mt-5 border-t border-ink-100 pt-4 dark:border-ink-800">
             <Link to={`/track?id=${complaint.trackingId}`}>
-              <Button fullWidth variant="outline">View full complaint details</Button>
+              <Button fullWidth variant="outline">View details</Button>
             </Link>
           </div>
         )}

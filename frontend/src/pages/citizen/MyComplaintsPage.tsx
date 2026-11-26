@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { LayoutGrid, Table as TableIcon } from 'lucide-react';
 
 import { CitizenComplaintCard } from '@/components/complaints/CitizenComplaintCard';
+import {
+  LiveComplaintCategoryBadge,
+  LiveComplaintStatusBadge,
+  LiveComplaintPriorityBadge,
+} from '@/components/complaints/LiveComplaintCard';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -183,7 +188,9 @@ export function MyComplaintsPage() {
     {
       key: 'category',
       header: 'Category',
-      render: (c) => c.category,
+      render: (c) => (
+          <LiveComplaintCategoryBadge category={c.category} />
+        ),
     },
     {
       key: 'location',
@@ -199,12 +206,16 @@ export function MyComplaintsPage() {
     {
       key: 'priority',
       header: 'Priority',
-      render: (c) => c.priority,
+      render: (c) => (
+          <LiveComplaintPriorityBadge priority={c.priority} />
+        ),
     },
     {
       key: 'status',
       header: 'Status',
-      render: (c) => c.status,
+      render: (c) => (
+          <LiveComplaintStatusBadge status={c.status} />
+        ),
     },
     {
       key: 'updatedAt',

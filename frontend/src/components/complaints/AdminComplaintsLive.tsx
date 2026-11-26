@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import {
+  LiveComplaintCategoryBadge,
+  LiveComplaintStatusBadge,
+  LiveComplaintPriorityBadge,
+} from '@/components/complaints/LiveComplaintCard';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Input, Select } from '@/components/ui/Form';
@@ -16,12 +21,6 @@ import {
   type PaginatedComplaintsResponse,
 } from '@/services/complaintService';
 
-function readableValue(value: string): string {
-  return value
-    .replace(/_/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2');
-}
-
 function userName(
   user: ComplaintApiResponse['submittedBy']
 ): string {
@@ -29,26 +28,6 @@ function userName(
 
   const name = `${user.firstName} ${user.lastName}`.trim();
   return name || 'Unavailable';
-}
-
-const statusStyles: Record<string, string> = {
-  submitted: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-  underreview: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300',
-  inprogress: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  resolved: 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300',
-  rejected: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  withdrawn: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-};
-
-const priorityStyles: Record<string, string> = {
-  low: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-  medium: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-  high: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-  critical: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-};
-
-function normalizedValue(value: string): string {
-  return value.replace(/[^a-z]/gi, '').toLowerCase();
 }
 
 const columns: Column<ComplaintApiResponse>[] = [
@@ -88,35 +67,21 @@ const columns: Column<ComplaintApiResponse>[] = [
     header: 'Category',
     hideOnMobile: true,
     render: (item) => (
-      <span>{readableValue(item.category).replace(/\b\w/g, (letter) => letter.toUpperCase())}</span>
+      <LiveComplaintCategoryBadge category={item.category} />
     ),
   },
   {
     key: 'status',
     header: 'Status',
     render: (item) => (
-      <span
-        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-          statusStyles[normalizedValue(item.status)] ??
-          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-        }`}
-      >
-        {readableValue(item.status)}
-      </span>
+      <LiveComplaintStatusBadge status={item.status} />
     ),
   },
   {
     key: 'priority',
     header: 'Priority',
     render: (item) => (
-      <span
-        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-          priorityStyles[normalizedValue(item.priority)] ??
-          'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-        }`}
-      >
-        {readableValue(item.priority)}
-      </span>
+      <LiveComplaintPriorityBadge priority={item.priority} />
     ),
   },
   {

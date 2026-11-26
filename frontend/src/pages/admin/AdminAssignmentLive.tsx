@@ -223,7 +223,7 @@ export function AdminAssignmentLive() {
                 to={`/admin/complaints/${encodeURIComponent(selected.id)}`}
                 className="mt-4 inline-block text-sm font-medium text-primary-600 hover:underline"
               >
-                View full complaint details
+                View details
               </Link>
             </Card>
 

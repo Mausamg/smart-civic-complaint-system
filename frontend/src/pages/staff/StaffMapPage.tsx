@@ -10,7 +10,13 @@ import {
   TileLayer,
   useMap,
 } from 'react-leaflet';
-import { Link } from 'react-router-dom';
+import {
+  LiveComplaintCard,
+  LiveComplaintSummary,
+  LiveComplaintPriorityBadge,
+  LiveComplaintDetailsLink,
+  type LiveComplaintSummaryData,
+} from '@/components/complaints/LiveComplaintCard';
 import { useApp } from '@/context/AppContext';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
@@ -19,6 +25,35 @@ import {
 } from '@/services/complaintService';
 
 type Position = [number, number];
+
+function complaintDetailsPath(id: string): string {
+  return `/staff/complaints/${encodeURIComponent(id)}`;
+}
+
+function toSummaryData(
+  complaint: ComplaintApiResponse
+): LiveComplaintSummaryData {
+  const municipality =
+    complaint.municipality?.trim() || 'Not specified';
+
+  return {
+    id: complaint.id,
+    title: complaint.title,
+    category: complaint.category,
+    status: complaint.status,
+    priority: complaint.priority,
+    location: complaint.location,
+    createdAt: complaint.createdAt,
+    updatedAt: complaint.updatedAt,
+    departmentLabel: complaint.departmentId
+      ? complaint.departmentName?.trim()
+        || 'Department name unavailable'
+      : 'No department',
+    municipalityLabel: complaint.ward
+      ? `${municipality} · Ward ${complaint.ward}`
+      : municipality,
+  };
+}
 
 function fitStaffLocations(
   map: LeafletMap,
@@ -329,17 +364,22 @@ export function StaffMapPage() {
                     }}
                   >
                     <Popup>
-                      <div className="space-y-2">
-                        <strong>{complaint.title}</strong>
-                        <p>{complaint.location}</p>
-                        <p>Status: {complaint.status}</p>
-                        <p>Priority: {complaint.priority}</p>
-                        <Link
-                          to={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
-                          className="font-medium text-blue-700 underline"
-                        >
-                          View complaint
-                        </Link>
+                      <div className="max-w-[240px] space-y-3">
+                        <LiveComplaintSummary
+                          complaint={toSummaryData(complaint)}
+                          compact
+                        />
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-2 dark:border-ink-800">
+                          <LiveComplaintPriorityBadge
+                            priority={complaint.priority}
+                          />
+
+                          <LiveComplaintDetailsLink
+                            to={complaintDetailsPath(complaint.id)}
+                            title={complaint.title}
+                          />
+                        </div>
                       </div>
                     </Popup>
                   </CircleMarker>
@@ -369,46 +409,14 @@ export function StaffMapPage() {
                 <ul className="max-h-[560px] space-y-3 overflow-y-auto">
                   {filteredComplaints.map((complaint) => (
                     <li key={complaint.id}>
-                      <div
-                        className={`rounded-xl border p-3 transition ${
-                          selectedComplaintId === complaint.id
-                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/20'
-                            : 'border-ink-200 hover:border-primary-400'
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          disabled={!locatedIds.has(complaint.id)}
-                          onClick={() => focusComplaint(complaint)}
-                          aria-label={`Focus ${complaint.title} on map`}
-                          className="block w-full cursor-pointer text-left disabled:cursor-default"
-                        >
-                          <h3 className="break-words text-sm font-semibold text-ink-900 dark:text-ink-100">
-                            {complaint.title}
-                          </h3>
-
-                          <p className="mt-2 text-xs text-ink-500">
-                            {complaint.category} · {complaint.status}
-                          </p>
-
-                          <p className="mt-1 text-xs text-ink-600 dark:text-ink-300">
-                            {complaint.location}
-                          </p>
-
-                          {!locatedIds.has(complaint.id) && (
-                            <p className="mt-2 text-xs text-amber-700">
-                              No valid map coordinates
-                            </p>
-                          )}
-                        </button>
-
-                        <Link
-                          to={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
-                          className="mt-3 inline-block text-xs font-semibold text-primary-600 hover:underline"
-                        >
-                          View full complaint details →
-                        </Link>
-                      </div>
+                      <LiveComplaintCard
+                        variant="compact"
+                        complaint={toSummaryData(complaint)}
+                        detailsTo={complaintDetailsPath(complaint.id)}
+                        selected={selectedComplaintId === complaint.id}
+                        locationUnavailable={!locatedIds.has(complaint.id)}
+                        onSelectLocation={() => focusComplaint(complaint)}
+                      />
                     </li>
                   ))}
                 </ul>

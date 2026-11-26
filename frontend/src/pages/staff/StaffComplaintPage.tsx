@@ -3,6 +3,7 @@ import {
   type ComplaintApiResponse,
 } from '@/services/complaintService';
 import { ComplaintCard } from '@/components/complaints/ComplaintCard';
+import { LiveComplaintCard } from '@/components/complaints/LiveComplaintCard';
 import { EvidenceGallery } from '@/components/complaints/EvidenceGallery';
 import { Timeline } from '@/components/complaints/Timeline';
 import { FileUploader,type UploadedFile } from '@/components/forms/FileUploader';
@@ -117,48 +118,22 @@ export function StaffAssignedPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {assigned.map((complaint) => (
-            <Link
+            <LiveComplaintCard
               key={complaint.id}
-              to={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
-              className="block rounded-2xl focus-visible:ring-2 focus-visible:ring-primary-500"
-            >
-              <Card hover className="h-full p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-primary-600">
-                    {complaint.category}
-                  </span>
-                  <span className="text-xs font-medium text-ink-500">
-                    {complaint.status}
-                  </span>
-                </div>
-
-                <p className="mt-3 text-xs text-ink-400">
-                  ID: {complaint.id.slice(0, 8)}
-                </p>
-
-                <h3 className="mt-1 text-sm font-semibold text-ink-900 dark:text-ink-100">
-                  {complaint.title}
-                </h3>
-
-                <p className="mt-2 line-clamp-2 text-xs text-ink-500">
-                  {complaint.description}
-                </p>
-
-                <div className="mt-4 space-y-2 text-xs text-ink-500">
-                  <p>Location: {complaint.location}</p>
-                  <p>Submitted: {formatDate(complaint.createdAt)}</p>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between border-t border-ink-100 pt-3 dark:border-ink-800">
-                  <span className="text-xs font-medium">
-                    Priority: {complaint.priority}
-                  </span>
-                  <span className="text-xs text-ink-400">
-                    {timeAgo(complaint.updatedAt ?? complaint.createdAt)}
-                  </span>
-                </div>
-              </Card>
-            </Link>
+              variant="regular"
+              complaint={{
+                id: complaint.id,
+                title: complaint.title,
+                description: complaint.description,
+                category: complaint.category,
+                status: complaint.status,
+                priority: complaint.priority,
+                location: complaint.location,
+                createdAt: complaint.createdAt,
+                updatedAt: complaint.updatedAt,
+              }}
+              detailsTo={`/staff/complaints/${encodeURIComponent(complaint.id)}`}
+            />
           ))}
         </div>
       )}

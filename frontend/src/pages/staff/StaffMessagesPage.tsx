@@ -353,7 +353,7 @@ export function StaffMessagesPage() {
                     to={`/staff/complaints/${encodeURIComponent(selectedComplaint.id)}`}
                     className="mt-2 inline-block text-xs text-primary-600"
                   >
-                    View complaint details
+                    View details
                   </Link>
                 </div>
 
