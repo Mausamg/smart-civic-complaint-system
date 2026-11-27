@@ -665,7 +665,7 @@ export function PublicMapPage() {
                             to={`/admin/complaints/${encodeURIComponent(item.id)}`}
                             className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-600 transition hover:bg-primary-50 hover:underline dark:hover:bg-primary-950/30"
                           >
-                            Open full complaint details
+                            View details
                           </Link>
                         )}
                       </div>
@@ -741,7 +741,7 @@ export function PublicMapPage() {
                               to={`/admin/complaints/${encodeURIComponent(item.id)}`}
                               className="inline-block font-semibold text-blue-700 underline"
                             >
-                              Open full complaint details
+                              View details
                             </Link>
                           )}
                         </div>

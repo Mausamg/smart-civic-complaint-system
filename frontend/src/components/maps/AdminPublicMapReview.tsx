@@ -344,7 +344,7 @@ export function AdminPublicMapReview({
                     to={`/admin/complaints/${encodeURIComponent(row.id)}`}
                     className="mt-3 inline-block text-xs font-semibold text-primary-600 hover:underline"
                   >
-                    Review full complaint details
+                    View details
                   </Link>
 
                   {!row.isPublicMapOptedIn &&

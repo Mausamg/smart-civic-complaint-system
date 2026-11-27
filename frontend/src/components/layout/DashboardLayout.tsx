@@ -105,6 +105,7 @@ const navByRole: Record<UserRole, { section: string; items: NavItem[] }[]> = {
         { label: 'Dashboard', to: '/admin/dashboard', icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
         { label: 'Complaints', to: '/admin/complaints', icon: <ListTodo className="h-[18px] w-[18px]" /> },
         { label: 'Assignment', to: '/admin/assignment', icon: <FilePlus2 className="h-[18px] w-[18px]" /> },
+        { label: 'Internal Complaint Map', to: '/admin/internal-map', icon: <MapIcon className="h-[18px] w-[18px]" /> },
         { label: 'Public Map', to: '/admin/map', icon: <MapIcon className="h-[18px] w-[18px]" /> },
       ],
     },
