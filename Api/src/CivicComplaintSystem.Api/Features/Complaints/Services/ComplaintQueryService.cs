@@ -425,6 +425,7 @@ public async Task<PaginatedResponse<ComplaintResponse>>
     
     public async Task<List<ComplaintStatusHistoryResponse>> GetStatusHistoryAsync(
         Guid complaintId,
+        bool includeActorIdentity,
         CancellationToken cancellationToken = default)
     {
         return await context.ComplaintStatusHistories
@@ -445,12 +446,16 @@ public async Task<PaginatedResponse<ComplaintResponse>>
                         h.NewStatus.ToString(),
 
                     ChangedByUserId =
-                        h.ChangedByUserId,
+                        includeActorIdentity
+                            ? h.ChangedByUserId
+                            : (Guid?)null,
 
                     ChangedByName =
-                        h.ChangedByUser.FirstName +
-                        " " +
-                        h.ChangedByUser.LastName,
+                        includeActorIdentity
+                            ? h.ChangedByUser.FirstName +
+                              " " +
+                              h.ChangedByUser.LastName
+                            : null,
 
                     ChangedAtUtc =
                         h.ChangedAtUtc,

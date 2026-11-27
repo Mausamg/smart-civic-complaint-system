@@ -157,8 +157,8 @@ public class StatusChangeNotesApiTests
                 "UnderReview", entry.NewStatus);
             Assert.Equal(
                 "Inspection started.", entry.Note);
-            Assert.Equal(
-                admin.Id, entry.ChangedByUserId);
+            Assert.Null(entry.ChangedByUserId);
+            Assert.Null(entry.ChangedByName);
 
             var saved = await db.Complaints
                 .AsNoTracking()

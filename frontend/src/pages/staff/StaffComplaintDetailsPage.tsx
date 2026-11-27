@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
 import { ExactComplaintLocationMap } from '@/components/maps/ExactComplaintLocationMap';
 import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
-import { StaffStatusHistoryPanel } from '@/components/complaints/StaffStatusHistoryPanel';
+import { ComplaintStatusHistoryPanel } from '@/components/complaints/ComplaintStatusHistoryPanel';
 import { StaffStatusUpdatePanel } from '@/components/complaints/StaffStatusUpdatePanel';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -132,7 +132,8 @@ export function StaffComplaintDetailsPage() {
       <CitizenComplaintDetailsOverview complaint={complaint} />
 
       {accessToken && (
-        <StaffStatusHistoryPanel
+        <ComplaintStatusHistoryPanel
+          audience="internal"
           complaintId={complaint.id}
           accessToken={accessToken}
         />

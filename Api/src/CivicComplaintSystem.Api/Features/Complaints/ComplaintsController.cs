@@ -923,9 +923,17 @@ public sealed class ComplaintsController(
         if (!canView)
             return Forbid();
 
+        // Complaint owners can read status changes and explanations,
+        // but operational actor identities are restricted.
+        var includeActorIdentity =
+            User.IsInRole(AppRoles.Admin) ||
+            (User.IsInRole(AppRoles.Staff) &&
+             complaint.AssignedToUserId == userId);
+
         var history =
             await complaintQueryService.GetStatusHistoryAsync(
                 id,
+                includeActorIdentity,
                 cancellationToken);
 
         return Ok(history);
