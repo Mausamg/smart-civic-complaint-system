@@ -243,8 +243,8 @@ export interface ComplaintStatusHistoryResponse {
   id: string;
   oldStatus: string;
   newStatus: string;
-  changedByUserId: string;
-  changedByName: string;
+  changedByUserId?: string;
+  changedByName?: string;
   changedAtUtc: string;
   note: string | null;
 }

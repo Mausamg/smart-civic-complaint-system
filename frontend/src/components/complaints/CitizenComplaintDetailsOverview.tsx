@@ -1,4 +1,9 @@
 import { Card } from '@/components/ui/Card';
+import {
+  LiveComplaintCategoryBadge,
+  LiveComplaintPriorityBadge,
+  LiveComplaintStatusBadge,
+} from '@/components/complaints/LiveComplaintCard';
 import type { ComplaintApiResponse } from '@/services/complaintService';
 import { formatDate } from '@/utils/format';
 
@@ -19,9 +24,7 @@ export function CitizenComplaintDetailsOverview({
           </p>
         </div>
 
-        <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-          {complaint.status}
-        </span>
+        <LiveComplaintStatusBadge status={complaint.status} />
       </div>
 
       <h2 className="mt-5 text-lg font-semibold text-ink-900 dark:text-ink-100">
@@ -35,12 +38,16 @@ export function CitizenComplaintDetailsOverview({
       <div className="mt-5 grid gap-4 border-t border-ink-100 pt-5 sm:grid-cols-2 dark:border-ink-800">
         <div>
           <p className="text-xs text-ink-400">Category</p>
-          <p className="mt-1 text-sm font-medium">{complaint.category}</p>
+          <div className="mt-1">
+            <LiveComplaintCategoryBadge category={complaint.category} />
+          </div>
         </div>
 
         <div>
           <p className="text-xs text-ink-400">Priority</p>
-          <p className="mt-1 text-sm font-medium">{complaint.priority}</p>
+          <div className="mt-1">
+            <LiveComplaintPriorityBadge priority={complaint.priority} />
+          </div>
         </div>
 
         <div>

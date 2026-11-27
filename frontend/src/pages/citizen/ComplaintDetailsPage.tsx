@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { CitizenComplaintDetailsOverview } from '@/components/complaints/CitizenComplaintDetailsOverview';
+import { ComplaintStatusHistoryPanel } from '@/components/complaints/ComplaintStatusHistoryPanel';
 import { ComplaintEvidenceSection } from '@/components/complaints/ComplaintEvidenceSection';
 import { CitizenIncidentLocationMap } from '@/components/maps/CitizenIncidentLocationMap';
 import { ComplaintConversationPanel } from '@/components/complaints/ComplaintConversationPanel';
@@ -216,6 +217,15 @@ export function ComplaintDetailsPage() {
         />
 
         <CitizenComplaintDetailsOverview complaint={complaint} />
+
+        {accessToken && user?.id === complaint.submittedByUserId && (
+          <ComplaintStatusHistoryPanel
+            key={complaint.id}
+            complaintId={complaint.id}
+            accessToken={accessToken}
+            audience="citizen"
+          />
+        )}
 
         {accessToken && user?.id === complaint.submittedByUserId && (
           <Card className="mt-4 p-6">

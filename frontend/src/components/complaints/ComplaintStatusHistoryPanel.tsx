@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { LiveComplaintStatusBadge } from '@/components/complaints/LiveComplaintCard';
 
 import {
   getComplaintStatusHistory,
@@ -11,11 +12,13 @@ import {
 interface Props {
   complaintId: string;
   accessToken: string;
+  audience: 'citizen' | 'internal';
 }
 
-export function StaffStatusHistoryPanel({
+export function ComplaintStatusHistoryPanel({
   complaintId,
   accessToken,
+  audience,
 }: Props) {
   const [history, setHistory] =
     useState<ComplaintStatusHistoryResponse[]>([]);
@@ -69,12 +72,14 @@ export function StaffStatusHistoryPanel({
         Complaint Status History
       </h2>
 
-      <p className="mt-1 text-sm text-ink-500">
-        Recorded status changes and explanations.
+      <p className="mt-1 text-sm text-ink-500 dark:text-ink-300">
+        {audience === 'citizen'
+          ? 'Track the recorded progress of your complaint.'
+          : 'Recorded status changes and explanations.'}
       </p>
 
       {loading && (
-        <p role="status" className="mt-4 text-sm text-ink-500">
+        <p role="status" className="mt-4 text-sm text-ink-500 dark:text-ink-300">
           Loading status history...
         </p>
       )}
@@ -96,7 +101,7 @@ export function StaffStatusHistoryPanel({
       )}
 
       {!loading && !error && history.length === 0 && (
-        <p className="mt-4 text-sm text-ink-500">
+        <p className="mt-4 text-sm text-ink-500 dark:text-ink-300">
           No status changes have been recorded yet.
         </p>
       )}
@@ -109,25 +114,32 @@ export function StaffStatusHistoryPanel({
               className="rounded-xl border border-ink-100 p-4 dark:border-ink-800"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-ink-900 dark:text-ink-100">
-                  {entry.oldStatus} → {entry.newStatus}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <LiveComplaintStatusBadge status={entry.oldStatus} />
+                  <span className="sr-only">changed to</span>
+                  <span aria-hidden="true" className="text-ink-500 dark:text-ink-300">
+                    →
+                  </span>
+                  <LiveComplaintStatusBadge status={entry.newStatus} />
+                </div>
 
                 <time
                   dateTime={entry.changedAtUtc}
-                  className="text-xs text-ink-500"
+                  className="text-xs text-ink-500 dark:text-ink-300"
                 >
                   {new Date(entry.changedAtUtc).toLocaleString()}
                 </time>
               </div>
 
-              <p className="mt-2 text-xs text-ink-500">
-                Changed by: {entry.changedByName || 'Unknown user'}
-              </p>
+              {audience === 'internal' && entry.changedByName && (
+                <p className="mt-2 text-xs text-ink-500 dark:text-ink-300">
+                  Changed by: {entry.changedByName}
+                </p>
+              )}
 
               {entry.note && (
                 <div className="mt-3 rounded-lg bg-ink-50 p-3 dark:bg-ink-800/50">
-                  <p className="text-xs font-medium text-ink-500">
+                  <p className="text-xs font-medium text-ink-500 dark:text-ink-300">
                     Explanation
                   </p>
 
